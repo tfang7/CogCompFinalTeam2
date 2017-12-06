@@ -1,3 +1,6 @@
+from math import fmod, pi
+from time import clock
+
 class Map(object):
     '''
     Map class

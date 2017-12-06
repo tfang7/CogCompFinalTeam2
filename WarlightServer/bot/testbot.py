@@ -9,9 +9,10 @@
 # @license MIT License (http://opensource.org/licenses/MIT)           # 
 #---------------------------------------------------------------------#
 
+from math import fmod, pi
 from sys import stderr, stdin, stdout
-import VectorMap
-from GameData import *
+from time import clock
+
 class Bot(object):
     '''
     Main bot class
@@ -20,15 +21,9 @@ class Bot(object):
         '''
         Initializes a map instance and an empty dict for settings
         '''
-        self.VectorMap = VectorMap.VectorMap()
         self.settings = {}
         self.map = Map()
-    def readFromServer(self):
-        #pass 84 vector into NN
-        pass
-    def WriteFromServer(self):
-        #obtain output from NN        
-        pass
+
     def run(self):
         '''
         Main loop
@@ -39,6 +34,7 @@ class Bot(object):
         while not stdin.closed:
             try:
                 rawline = stdin.readline()
+
                 # End of file check
                 if len(rawline) == 0:
                     break
@@ -141,30 +137,17 @@ class Bot(object):
 
                         region.is_on_super_region_border = True
                         neighbour.is_on_super_region_border = True
-        self.VectorMap.setup(self.map, self.settings['your_bot'], self.settings['opponent_bot'])
 
     def update_map(self, options):
         '''
         Method to update our map every round.
         '''
         for i in range(0, len(options), 3):
+            
             region = self.map.get_region_by_id(options[i])
             region.owner = options[i + 1]
             region.troop_count = int(options[i + 2])
-            self.VectorMap.readRegion(options[i], region.owner, region.troop_count)
-        f = open("regions.txt", "a")
-        output = ("Army Data\n" )
-        output += (self.VectorMap.getArmies())
-        output += "\n"
-        
-        output = ("Ally Data\n" )
-        output += (self.VectorMap.getRegions())
-        output += "\n"
-        f.write(output)
-
-        f.close()
-
-        
+            
     def pick_starting_regions(self, options):
         '''
         Method to select our initial starting regions.
@@ -242,7 +225,87 @@ class Bot(object):
         return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0],
             attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])
 
+class Map(object):
+    '''
+    Map class
+    '''
+    def __init__(self):
+        '''
+        Initializes empty lists for regions and super regions.
+        '''
+        self.regions = []
+        self.super_regions = []
 
+    def get_region_by_id(self, region_id):
+        '''
+        Returns a region instance by id.
+        '''
+        return [region for region in self.regions if region.id == region_id][0]
+    
+    def get_super_region_by_id(self, super_region_id):
+        '''
+        Returns a super region instance by id.
+        '''
+        return [super_region for super_region in self.super_regions if super_region.id == super_region_id][0]
+
+    def get_owned_regions(self, owner):
+        '''
+        Returns a list of region instances owned by `owner`.
+        '''
+        return [region for region in self.regions if region.owner == owner]
+
+class SuperRegion(object):
+    '''
+    Super Region class
+    '''
+    def __init__(self, super_region_id, worth):
+        '''
+        Initializes with an id, the super region's worth and an empty lists for 
+        regions located inside this super region
+        '''
+        self.id = super_region_id
+        self.worth = worth
+        self.regions = []
+
+class Region(object):
+    '''
+    Region class
+    '''
+    def __init__(self, region_id, super_region):
+        '''
+        '''
+        self.id = region_id
+        self.owner = 'neutral'
+        self.neighbours = []
+        self.troop_count = 2
+        self.super_region = super_region
+        self.is_on_super_region_border = False
+
+class Random(object):
+    '''
+    Random class
+    '''
+    @staticmethod
+    def randrange(min, max):
+        '''
+        A pseudo random number generator to replace random.randrange
+        
+        Works with an inclusive left bound and exclusive right bound.
+        E.g. Random.randrange(0, 5) in [0, 1, 2, 3, 4] is always true
+        '''
+        return min + int(fmod(pow(clock() + pi, 2), 1.0) * (max - min))
+
+    @staticmethod
+    def shuffle(items):
+        '''
+        Method to shuffle a list of items
+        '''
+        i = len(items)
+        while i > 1:
+            i -= 1
+            j = Random.randrange(0, i)
+            items[j], items[i] = items[i], items[j]
+        return items
 
 if __name__ == '__main__':
     '''
