@@ -19,6 +19,8 @@ package main;
 
 import java.util.ArrayList;
 
+import com.sun.net.ssl.internal.www.protocol.https.Handler;
+
 import move.AttackTransferMove;
 import move.Move;
 import move.PlaceArmiesMove;
@@ -35,7 +37,7 @@ public class Parser {
 	public ArrayList<Move> parseMoves(String input, Player player)
 	{
 		ArrayList<Move> moves = new ArrayList<Move>();
-		
+
 		try {
 			input = input.trim();
 			if(input.length() <= 1)

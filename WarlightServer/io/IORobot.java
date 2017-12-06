@@ -78,6 +78,7 @@ public class IORobot implements Robot
 	private String getMoves(String moveType, long timeOut)
 	{
 		String line = "";
+		System.out.println(handler.getStderr());
 		if(errorCounter < maxErrors)
 		{
 			handler.writeLine("go " + moveType + " " + timeOut);
