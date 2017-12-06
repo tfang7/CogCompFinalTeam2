@@ -121,7 +121,10 @@ public class RunGame
 		player2PlayedGame = this.engine.getPlayer2PlayedGame();
 		bot1.writeInfo("GAME_OVER");
 		bot2.writeInfo("GAME_OVER");
+		System.out.println(bot2.getStdout());
+
 		if (gamesPlayed == maxGames-1) {
+			System.out.println(bot2.getStderr());
 			System.out.println("Iteration ended");
 			end(bot1,bot2);
 		}
