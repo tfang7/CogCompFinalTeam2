@@ -12,6 +12,7 @@
 from sys import stderr, stdin, stdout
 import VectorMap
 from GameData import *
+        
 class Bot(object):
     '''
     Main bot class
@@ -20,12 +21,12 @@ class Bot(object):
         '''
         Initializes a map instance and an empty dict for settings
         '''
-      #  f = open("regions.txt", "w")
-     #   f.write("")
-       # f.close()
+        f = open("regions.txt", "w")
+        f.write("")
+        f.close()
         self.newGame = False
         self.gamesPlayed = 0
-        
+
         self.VectorMap = VectorMap.VectorMap()
         self.settings = {}
         self.map = Map()
@@ -42,10 +43,6 @@ class Bot(object):
         print("game over")
         self.newGame = True
         self.gamesPlayed += 1
-        if (self.gamesPlayed == 5):
-            f = open("regions.txt", "w")
-            f.write("")
-            f.close()
     def run(self):
         '''
         Main loop
@@ -73,6 +70,7 @@ class Bot(object):
                 # All different commands besides the opponents' moves
                 if command == 'settings':
                     self.update_settings(parts[1:])
+                    self.OnGameStart()
 
                 elif command == 'setup_map':
                     self.setup_map(parts[1:])
@@ -166,19 +164,22 @@ class Bot(object):
         '''
         Method to update our map every round.
         '''
+        vm = self.VectorMap
         for i in range(0, len(options), 3):
             region = self.map.get_region_by_id(options[i])
             region.owner = options[i + 1]
             region.troop_count = int(options[i + 2])
-            self.VectorMap.readRegion(options[i], region.owner, region.troop_count)
+            vm.readRegion(options[i], region.owner, region.troop_count)
+
+
         f = open("regions.txt", "a")
-        output = ("Games Played: " + str(self.gamesPlayed) + "\nArmy Data\n" )
-        output += (self.VectorMap.getRegionData("troops"))
+        output = ("Games Played: " + str(self.gamesPlayed) + "\nTensor Data\n" )
+        output += (vm.printTensor(vm.createTensor()))
         output += "\n"
 
-        output += ("Ally Data\n" )
-        output += (self.VectorMap.getRegionData("owner"))
-        output += "\n"
+        # output += ("Ally Data\n" )
+        # output += (self.VectorMap.getRegionData("owner"))
+        # output += "\n"
         f.write(output)
         f.close()
 
