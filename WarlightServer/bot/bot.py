@@ -32,6 +32,12 @@ class Bot(object):
     def WriteFromServer(self):
         #obtain output from NN        
         pass
+    # def newGame(self):
+    #     if (new == True)
+    #     nn.setTrue
+    # def endGame(self):
+    #     set new to false
+
     def run(self):
         '''
         Main loop
@@ -61,6 +67,7 @@ class Bot(object):
                     self.update_settings(parts[1:])
 
                 elif command == 'setup_map':
+                    #new game
                     self.setup_map(parts[1:])
 
                 elif command == 'update_map':
@@ -156,6 +163,7 @@ class Bot(object):
             region.owner = options[i + 1]
             region.troop_count = int(options[i + 2])
             self.VectorMap.readRegion(options[i], region.owner, region.troop_count)
+        
         f = open("regions.txt", "a")
         output = ("Army Data\n" )
         output += (self.VectorMap.getRegionData("troops"))
