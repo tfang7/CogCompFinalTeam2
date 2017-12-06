@@ -80,7 +80,8 @@ class Bot(object):
                     else:
                         stderr.write('Unknown sub command: %s\n' % (sub_command))
                         stderr.flush()
-
+                elif command == 'opponent_moves':
+                    pass
                 else:
                     stderr.write('Unknown command: %s\n' % (command))
                     stderr.flush()

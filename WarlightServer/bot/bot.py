@@ -20,6 +20,9 @@ class Bot(object):
         '''
         Initializes a map instance and an empty dict for settings
         '''
+        f = open("regions.txt", "w")
+        f.write("")
+        f.close()
         self.VectorMap = VectorMap.VectorMap()
         self.settings = {}
         self.map = Map()
@@ -84,7 +87,8 @@ class Bot(object):
                     else:
                         stderr.write('Unknown sub command: %s\n' % (sub_command))
                         stderr.flush()
-
+                elif command == "opponent_moves":
+                    pass
                 else:
                     stderr.write('Unknown command: %s\n' % (command))
                     stderr.flush()
@@ -154,14 +158,13 @@ class Bot(object):
             self.VectorMap.readRegion(options[i], region.owner, region.troop_count)
         f = open("regions.txt", "a")
         output = ("Army Data\n" )
-        output += (self.VectorMap.getArmies())
+        output += (self.VectorMap.getRegionData("troops"))
         output += "\n"
-        
-        output = ("Ally Data\n" )
-        output += (self.VectorMap.getRegions())
+
+        output += ("Ally Data\n" )
+        output += (self.VectorMap.getRegionData("owner"))
         output += "\n"
         f.write(output)
-
         f.close()
 
         
