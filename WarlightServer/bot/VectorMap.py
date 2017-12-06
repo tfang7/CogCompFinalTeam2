@@ -50,10 +50,10 @@ class VectorMap(object):
 		inputTensor = [0 for i in range(self.numRegions*2)]
 		for rID in self.RegionData.keys():
 			inputTensor[int(rID)-1] = self.RegionData[rID]["owner"]
-			inputTensor[int(rID)+41] =self.RegionData[rID]["troops"]
+			inputTensor[int(rID)+41] = self.RegionData[rID]["troops"]
 		return inputTensor
 
-	def getRegionData(self, datatype):
+	def getRegionData(self, data):
 		out = ""
 		count = 0
 		for rID in self.RegionData.keys():
@@ -63,3 +63,13 @@ class VectorMap(object):
 				out += "\n"
 			count += 1
 		return out
+
+	def tensorString(self, data):
+		out = ""
+		for key in data.keys():
+			out += str(data[key]) + " "
+			if (count+1)%7==0:
+				out += "\n"
+			count += 1
+		return out
+

@@ -23,6 +23,7 @@ class Bot(object):
         f = open("regions.txt", "w")
         f.write("")
         f.close()
+        self.newGame = False
         self.VectorMap = VectorMap.VectorMap()
         self.settings = {}
         self.map = Map()
@@ -32,6 +33,15 @@ class Bot(object):
     def WriteFromServer(self):
         #obtain output from NN        
         pass
+    def OnGameStart(self):
+        self.newGame = False
+        #neural network
+    def OnGameEnd(self):
+        print("game over")
+        self.newGame = True
+        f = open("game.txt", "w")
+        f.close()
+
     def run(self):
         '''
         Main loop
@@ -83,12 +93,13 @@ class Bot(object):
 
                         stdout.write(self.attack_transfer() + '\n')
                         stdout.flush()
-
                     else:
                         stderr.write('Unknown sub command: %s\n' % (sub_command))
                         stderr.flush()
                 elif command == "opponent_moves":
                     pass
+                elif command == "GAME_OVER":
+                    self.OnGameEnd()
                 else:
                     stderr.write('Unknown command: %s\n' % (command))
                     stderr.flush()

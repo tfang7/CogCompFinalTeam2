@@ -9,9 +9,7 @@
 # @license MIT License (http://opensource.org/licenses/MIT)           # 
 #---------------------------------------------------------------------#
 
-from math import fmod, pi
 from sys import stderr, stdin, stdout
-from time import clock
 import VectorMap
 from GameData import *
 class Bot(object):
@@ -22,6 +20,10 @@ class Bot(object):
         '''
         Initializes a map instance and an empty dict for settings
         '''
+        f = open("regions.txt", "w")
+        f.write("")
+        f.close()
+        self.newGame = False
         self.VectorMap = VectorMap.VectorMap()
         self.settings = {}
         self.map = Map()
@@ -31,6 +33,15 @@ class Bot(object):
     def WriteFromServer(self):
         #obtain output from NN        
         pass
+    def OnGameStart(self):
+        self.newGame = False
+        #neural network
+    def OnGameEnd(self):
+        print("game over")
+        self.newGame = True
+        f = open("game.txt", "w")
+        f.close()
+
     def run(self):
         '''
         Main loop
@@ -82,11 +93,13 @@ class Bot(object):
 
                         stdout.write(self.attack_transfer() + '\n')
                         stdout.flush()
-
                     else:
                         stderr.write('Unknown sub command: %s\n' % (sub_command))
                         stderr.flush()
-
+                elif command == "opponent_moves":
+                    pass
+                elif command == "GAME_OVER":
+                    self.OnGameEnd()
                 else:
                     stderr.write('Unknown command: %s\n' % (command))
                     stderr.flush()
@@ -154,7 +167,16 @@ class Bot(object):
             region.owner = options[i + 1]
             region.troop_count = int(options[i + 2])
             self.VectorMap.readRegion(options[i], region.owner, region.troop_count)
+        f = open("regions.txt", "a")
+        output = ("Army Data\n" )
+        output += (self.VectorMap.getRegionData("troops"))
+        output += "\n"
 
+        output += ("Ally Data\n" )
+        output += (self.VectorMap.getRegionData("owner"))
+        output += "\n"
+        f.write(output)
+        f.close()
 
         
     def pick_starting_regions(self, options):

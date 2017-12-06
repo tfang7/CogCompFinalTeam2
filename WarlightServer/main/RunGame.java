@@ -41,21 +41,30 @@ public class RunGame
 	int gameIndex = 1;
 
 	String playerName1, playerName2;
-	final String gameId,
+	final String
 			bot1Id, bot2Id,
 			bot1Dir, bot2Dir;
+	String gameId;
 
 	Engine engine;
+	private IORobot bot1;
+	private IORobot bot2;
 
 	//DB db;
 
 	public static void main(String args[]) throws Exception
 	{	
 		RunGame run = new RunGame(args);
-		run.go();
+		int playedGames = 1;
+		int maxGames = 11;
+		while (playedGames < maxGames) 
+		{
+			run.go(playedGames, maxGames);
+			playedGames++;
+		}
 	}
 	
-	public RunGame(String args[])
+	public RunGame(String args[]) throws IOException
 	{
 		this.gameId = args[0];
 		this.bot1Id = args[1];
@@ -64,24 +73,24 @@ public class RunGame
 		this.bot2Dir = args[4];
 		this.playerName1 = "player1";
 		this.playerName2 = "player2";
+		this.bot1 = new IORobot(bot1Dir);
+		this.bot2 = new IORobot(bot2Dir);
+
 	}
 
-	private void go() throws IOException, InterruptedException
+	private void go(int gamesPlayed, int maxGames) throws IOException, InterruptedException
 	{
+		this.gameId = gamesPlayed + "";
 		System.out.println("starting game " + gameId);
-		
 		Map initMap, map;
 		Player player1, player2;
-		IORobot bot1, bot2;
 		int startingArmies;
 //db = new MongoClient("localhost", 27017).getDB("test");
 		
 		//setup the bots
-		bot1 = new IORobot(bot1Dir);
-		bot2 = new IORobot(bot2Dir);
 		startingArmies = 5;
-		player1 = new Player(playerName1, bot1, startingArmies);
-		player2 = new Player(playerName2, bot2, startingArmies);
+		player1 = new Player(playerName1, this.bot1, startingArmies);
+		player2 = new Player(playerName2, this.bot2, startingArmies);
 
 		//setup the map
 		initMap = makeInitMap();
@@ -110,12 +119,35 @@ public class RunGame
 		fullPlayedGame = this.engine.getFullPlayedGame();
 		player1PlayedGame = this.engine.getPlayer1PlayedGame();
 		player2PlayedGame = this.engine.getPlayer2PlayedGame();
-
-		finish(bot1, bot2);
+		bot1.writeInfo("GAME_OVER");
+		bot2.writeInfo("GAME_OVER");
+		if (gamesPlayed == maxGames-1) {
+			System.out.println("Iteration ended");
+			end(bot1,bot2);
+		}
+		else {
+			finish(bot1, bot2);
+		}
 	}
 
 	//aanpassen en een QPlayer class maken? met eigen finish
 	private void finish(IORobot bot1, IORobot bot2) throws InterruptedException
+	{
+/*		bot1.finish();
+		Thread.sleep(200);
+
+		bot2.finish();
+		Thread.sleep(200);
+
+		Thread.sleep(200);*/
+
+		// write everything
+		// String outputFile = this.writeOutputFile(this.gameId, this.engine.winningPlayer());
+		this.saveGame(bot1, bot2);
+
+        //System.exit(0);
+	}
+	private void end(IORobot bot1, IORobot bot2) throws InterruptedException
 	{
 		bot1.finish();
 		Thread.sleep(200);
@@ -131,7 +163,6 @@ public class RunGame
 
         System.exit(0);
 	}
-
 	//tijdelijk handmatig invoeren
 	private Map makeInitMap()
 	{

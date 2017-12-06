@@ -37,7 +37,6 @@ public class Parser {
 	public ArrayList<Move> parseMoves(String input, Player player)
 	{
 		ArrayList<Move> moves = new ArrayList<Move>();
-
 		try {
 			input = input.trim();
 			if(input.length() <= 1)
