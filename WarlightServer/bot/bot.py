@@ -12,6 +12,7 @@
 from sys import stderr, stdin, stdout
 import VectorMap
 from GameData import *
+import Bot_functions
         
 class Bot(object):
     '''
@@ -190,9 +191,8 @@ class Bot(object):
         
         Currently selects six random regions.
         '''
-        shuffled_regions = Random.shuffle(Random.shuffle(options))
         
-        return ' '.join(shuffled_regions[:6])
+        return Bot_functions.setup()
 
     def place_troops(self):
         '''
