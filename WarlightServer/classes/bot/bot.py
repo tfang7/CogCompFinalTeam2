@@ -190,8 +190,10 @@ class Bot(object):
         
         Currently selects 8 random regions and Australia region
         '''
-        return Bot_functions.setup()
+        shuffled_regions = Random.shuffle(Random.shuffle(options))
+        
 
+        return ' '.join(shuffled_regions[:6])
     def place_troops(self):
         '''
         Method to place our troops.
