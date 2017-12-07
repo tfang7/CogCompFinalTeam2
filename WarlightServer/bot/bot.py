@@ -10,10 +10,10 @@
 #---------------------------------------------------------------------#
 
 from sys import stderr, stdin, stdout
-import VectorMap
+from VectorMap import VectorMap
 from GameData import *
-import Bot_functions
-        
+from PlaceManager import PlaceManager
+
 class Bot(object):
     '''
     Main bot class
@@ -28,7 +28,8 @@ class Bot(object):
         self.newGame = False
         self.gamesPlayed = 0
 
-        self.VectorMap = VectorMap.VectorMap()
+        self.VectorMap = VectorMap()
+        self.PlaceManager = PlaceManager()
         self.settings = {}
         self.map = Map()
     def readFromServer(self):
@@ -192,7 +193,7 @@ class Bot(object):
         Currently selects six random regions.
         '''
         
-        return Bot_functions.setup()
+        return self.PlaceManager.setup()
 
     def place_troops(self):
         '''

@@ -1,7 +1,7 @@
-import VectorMap
-class Bot_Functions():
+
+class PlaceManager(object):
     #To place the troops
-    def setup():
+    def setup(self):
         list_42 = (xrange(0, 42))
         random.shuffle(list_42)
         regions = [12]
@@ -16,13 +16,13 @@ class Bot_Functions():
         return ' '.join(regions)
 
     #Helper function for allocate_troops
-    def isMine(countries,country):
+    def isMine(self, countries,country):
         for i in countries:
             if country == i:
                 return True
         return False
 
-    def allocate_troops(soft_max_countries, num_troops, countries):
+    def allocate_troops(self, soft_max_countries, num_troops, countries):
     #Given a list of countries and a number of troops, 
     #How many troops to each country depending on a soft-max function
         amount_troops = [[2]]
