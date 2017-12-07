@@ -14,6 +14,7 @@ from sys import stderr, stdin, stdout
 from time import clock
 import VectorMap
 from GameData import *
+import Bot_Functions
 class Bot(object):
     '''
     Main bot class
@@ -161,11 +162,9 @@ class Bot(object):
         '''
         Method to select our initial starting regions.
         
-        Currently selects six random regions.
+        Currently selects 8 random regions and Australia region
         '''
-        shuffled_regions = Random.shuffle(Random.shuffle(options))
-        
-        return ' '.join(shuffled_regions[:6])
+        return Bot_functions.setup()
 
     def place_troops(self):
         '''
@@ -200,7 +199,8 @@ class Bot(object):
                  troops_remaining -= 1
 
             region_index += 1
-            
+        
+        #amount_troops = allocate_troops    
         return ', '.join(['%s place_armies %s %d' % (self.settings['your_bot'], placement[0],
             placement[1]) for placement in placements])
 
