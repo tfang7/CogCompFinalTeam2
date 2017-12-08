@@ -1,5 +1,7 @@
 import random
 import math
+
+
 class ActionManager(object):
     #To place the troops
     def __init__(self, VectorMap, settings, GameMap):
@@ -7,10 +9,13 @@ class ActionManager(object):
         self.settings = settings
         self.map = GameMap
         self.soft_map = [random.random() for soft in range(42)]
-
     def setup(self):
-        list_42 = list(xrange(0, 42))
-        regions = random.sample(list_42, 12)
+        list_42 = (xrange(0, 42))
+        random.shuffle(list_42)
+        regions = [12]
+        for i in range(0, len(regions)):
+            regions[i] = list_42[i]
+
         #Hardcoded so the AI always goes for Australia
         regions[1] = 39
         regions[2] = 40
@@ -25,7 +30,7 @@ class ActionManager(object):
             priorities = [random.random() for p in range(82)]
 
         vm = self.VectorMap
-        print(str(vm.attack_threshold))
+        #print(str(vm.attack_threshold))
         attack_transfers = [] #List to be returned
         owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
         armies_per_action = 0
@@ -36,21 +41,21 @@ class ActionManager(object):
             for target_region in neighbours:
                 #Look up the border pair in VectorMap. Could be reversed, so check both orientations. 
                 if [region.id, target_region.id] in vm.borders:
-                    print("found in border")
+                    #print("found in border")
                     index = vm.borders.index([region.id, target_region.id])
-                    print("found in border")
+                    #print("found in border")
                 elif [target_region.id, region.id] in vm.borders:
                     index = vm.borders.index([target_region.id, region.id])                            
                 if priorities[index] > vm.attack_threshold: #Currently arbitrary threshold for transfer/attack
-                    print("exceeds attack threshold")
+                    #print("exceeds attack threshold")
                     actions.append(target_region.id)
-            armies_per_action = (region.troop_count - 1)/len(actions) #Split up armies equally; can change this to be based on priority
+            armies_per_action = (region.troop_count - 1)/len(actions) if len(actions) > 0 else 0 #Split up armies equally; can change this to be based on priority
             
         for action in actions:
             attack_transfers.append([region.id, action, armies_per_action])
 
         region.troop_count -= armies_per_action * len(actions) #Not necessarily just 1 because of integer division         
-        if len(attack_transfers) == 0:
+        if armies_per_action == 0:
             return 'No moves'  
         return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0],
        attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])

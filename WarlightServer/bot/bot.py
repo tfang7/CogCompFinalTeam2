@@ -198,11 +198,7 @@ class Bot(object):
         return str(shuffled_regions[:6])#self.ActionManager.setup()
 
     def place_troops(self):
-		'''
-		Method to place our troops.
-        
-		Currently keeps places a maximum of two troops on random regions.
-		'''
+
 		amount_troops = self.ActionManager.allocate_troops(self.settings['starting_armies'])    
 		output = ""
 		placements = []
@@ -214,36 +210,9 @@ class Bot(object):
             placement[1]) for placement in placements])
 
     def attack_transfer(self):
-		#PrioritiesFromNeuralNetwork = None
-		#self.ActionManager.attack_transfer(PrioritiesFromNeuralNetwork)
-
-		attack_transfers = []
+        PrioritiesFromNeuralNetwork = None
+        attack = self.ActionManager.attack_transfer(PrioritiesFromNeuralNetwork)
+        return attack
         
-		owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
-        
-		for region in owned_regions:
-			neighbours = list(region.neighbours)
-			while len(neighbours) > 0:
-				target_region = neighbours[Random.randrange(0, len(neighbours))]
-				if region.owner != target_region.owner and region.troop_count > 6:
-					attack_transfers.append([region.id, target_region.id, 5])
-					region.troop_count -= 5
-				elif region.owner == target_region.owner and region.troop_count > 1:
-					attack_transfers.append([region.id, target_region.id, region.troop_count - 1])
-					region.troop_count = 1
-				else:
-					neighbours.remove(target_region)
-        
-		if len(attack_transfers) == 0:
-			return 'No moves'
-        
-		return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0],
-			attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])
-
-
-
 if __name__ == '__main__':
-    '''
-    Not used as module, so run
-    '''
     Bot().run()
