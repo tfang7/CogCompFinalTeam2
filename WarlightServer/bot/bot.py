@@ -197,23 +197,52 @@ class Bot(object):
         return str(shuffled_regions[:6])#self.ActionManager.setup()
 
     def place_troops(self):
-		'''
-		Method to place our troops.
+        '''
+        Method to place our troops.
         
-		Currently keeps places a maximum of two troops on random regions.
-		'''
-		amount_armies = self.ActionManager.allocate_troops(self.settings['starting_armies'])    
-		return ', '.join('%s place_armies %s %d' % ('your_bot', amount_troops[1][i], amount_troops[0][i])
-           for i in range(0, len(amount_troops)))
+        Currently keeps places a maximum of two troops on random regions.
+        '''
+        placements = []
+        region_index = 0
+        troops_remaining = int(self.settings['starting_armies'])
+        
+        owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
+        duplicated_regions = owned_regions * (3 + int(troops_remaining / 2))
+        shuffled_regions = Random.shuffle(duplicated_regions)
+        
+        while troops_remaining:
+
+            region = shuffled_regions[region_index]
+            
+            if troops_remaining > 1:
+
+                placements.append([region.id, 2])
+
+                region.troop_count += 2
+                troops_remaining -= 2
+                
+            else:
+
+                 placements.append([region.id, 1])
+
+                 region.troop_count += 1
+                 troops_remaining -= 1
+
+            region_index += 1
+            
+        return ', '.join(['%s place_armies %s %d' % (self.settings['your_bot'], placement[0],
+            placement[1]) for placement in placements])
 
     def attack_transfer(self):
         PrioritiesFromNeuralNetwork = None
-        self.ActionManager.attack_transfer(PrioritiesFromNeuralNetwork)
+        attack = self.ActionManager.attack_transfer(PrioritiesFromNeuralNetwork)
+        return attack
         '''
         Method to attack another region or transfer troops to allied regions.
         
         Currently checks whether a region has more than six troops placed to attack,
         or transfers if more than 1 unit is available.
+        '''
         '''
         attack_transfers = []
         
@@ -237,7 +266,7 @@ class Bot(object):
         
         return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0],
             attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])
-
+'''
 
 
 if __name__ == '__main__':
