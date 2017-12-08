@@ -3,6 +3,7 @@ class VectorMap(object):
 		self.MapData = []
 		self.numRegions = 42
 		self.initBorders()
+		self.attack_threshold = 0.5
 	def Region(self, rId, player, troops):
 		return {"id": rId, "owner": player, "troops": troops}
 	def initBorders(self):
