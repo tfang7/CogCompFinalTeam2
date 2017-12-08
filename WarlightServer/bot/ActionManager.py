@@ -1,16 +1,23 @@
-
+import random
 class ActionManager(object):
     #To place the troops
     def __init__(self, VectorMap, settings, GameMap):
         self.VectorMap = VectorMap
         self.settings = settings
         self.map = GameMap
+        self.soft_map = []
+    def set_soft_map(self):
+       i = 0
+
+       while(i < 42):
+           self.soft_map.append(random.uniform(0, 1))
+
     def setup(self):
         list_42 = (xrange(0, 42))
         random.shuffle(list_42)
-        regions = [12]
+        regions = []
         for i in range(0, len(regions)):
-            regions[i] = list_42[i]
+            regions.append(list_42[i])
 
         #Hardcoded so the AI always goes for Australia
         regions[0] = 39
@@ -20,11 +27,6 @@ class ActionManager(object):
         return ' '.join(regions)
 
     #Helper function for allocate_troops
-    def isMine(self, countries,country):
-        for i in countries:
-            if country == i:
-                return True
-        return False
     def attack_transfer(self, priorities):
     #Priorities is a 82 element vector giving a float value for each region border
         vm = self.VectorMap
@@ -51,49 +53,19 @@ class ActionManager(object):
         return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0],
        attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])
 
-    def allocate_troops(self, soft_max_countries, num_troops, countries):
+    def allocate_troops(self, num_troops):
     #Given a list of countries and a number of troops, 
     #How many troops to each country depending on a soft-max function
-        amount_troops = [[2]]
-        amount_troops.append([42])
-        allocate_troops = []
-        troops = num_troops
-        for i in range(0, len(soft_max_countries)):
-            if isMine(countries, countries[i]):
-                if soft_max_countries[i] > 0.69:
-                    #Getting a list of countries that need the troops the most
-                    allocate_troops.append(i)
-    
-        #We sort them so the countries that need the troops the most get troops first
-        allocate_troops.sort()
-        if (len(allocate_troops) >= 2):
-            countries[allocate_troops[0] + 41] += 2
-            #+41 because the second half is for how many troops there are
-            amount_troops[0].append(2)
-            amount_troops[1].append(allocate_troops[0])
-            #keeping track of the how many and where we place the troops
-            countries[allocate_troops[1] + 41] += 1
-            amount_troops[0].append(1)
-            amount_troops[1].append(allocate_troops[1])
-            troops -= 3
-            while troops > 0:
-                for i in range(0, len(allocate_troops)):
-                    if troops == 0:
-                        break
-                    countries[allocate_troops[i] + 41] += 1
-                    if i in range(0, len(amount_troops[0])):
-                        amount_troops[0].append(1)
-                        amount_troops[1].append(i)
-                    else:
-                        amount_troops[0][i] += 1
+        #priority/sum priorities * # troops floor 
+        self.set_soft_map()
+        amount_troops = [[]]
+        amount_troops.append([])
 
-                    troops -=1
-                
-        else:
-            #Only one place was important enough to place
-            countries[allocate_troops[0]] += troops
-            amount_troops[0].append(troops)
-            amount_troops[1].append(allocate_troops[0])
-            #', '.join('%s place_armies %s %d' % ('your_bot', amount_troops[1][i], amount_troops[0][i]) for i in range(0, len(amount_troops)))
-            #Use the above code in the main bot.py
+        troops = num_troops
+        sum_soft = sum(self.soft_map)
+        for i in range(0, len(self.soft_map)):
+            if (self.VectorMap.RegionData[str(i + 1)]["owner"] == 1):
+                amount_troops[0].append(floor((soft_max_countries[i]/sum_soft) * num_troops))
+                amount_troops[1].append(i)
+
         return (amount_troops) 
