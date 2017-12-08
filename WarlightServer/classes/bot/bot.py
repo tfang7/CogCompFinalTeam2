@@ -10,9 +10,10 @@
 #---------------------------------------------------------------------#
 
 from sys import stderr, stdin, stdout
-import VectorMap
+from VectorMap import VectorMap
 from GameData import *
-import Bot_Functions
+from ActionManager import ActionManager
+
 class Bot(object):
     '''
     Main bot class
@@ -21,15 +22,17 @@ class Bot(object):
         '''
         Initializes a map instance and an empty dict for settings
         '''
-      #  f = open("regions.txt", "w")
-     #   f.write("")
-       # f.close()
+        f = open("regions.txt", "w")
+        f.write("")
+        f.close()
         self.newGame = False
         self.gamesPlayed = 0
-        
-        self.VectorMap = VectorMap.VectorMap()
+
+        self.VectorMap = VectorMap()
         self.settings = {}
         self.map = Map()
+        self.ActionManager = ActionManager(self.VectorMap, self.settings, self.map)
+
     def readFromServer(self):
         #pass 84 vector into NN
         pass
@@ -43,10 +46,6 @@ class Bot(object):
         print("game over")
         self.newGame = True
         self.gamesPlayed += 1
-        if (self.gamesPlayed % 3 == 0):
-            f = open("regions.txt", "w")
-            f.write("")
-            f.close()
     def run(self):
         '''
         Main loop
@@ -74,6 +73,7 @@ class Bot(object):
                 # All different commands besides the opponents' moves
                 if command == 'settings':
                     self.update_settings(parts[1:])
+                    self.OnGameStart()
 
                 elif command == 'setup_map':
                     self.setup_map(parts[1:])
@@ -167,19 +167,22 @@ class Bot(object):
         '''
         Method to update our map every round.
         '''
+        vm = self.VectorMap
         for i in range(0, len(options), 3):
             region = self.map.get_region_by_id(options[i])
             region.owner = options[i + 1]
             region.troop_count = int(options[i + 2])
-            self.VectorMap.readRegion(options[i], region.owner, region.troop_count)
+            vm.readRegion(options[i], region.owner, region.troop_count)
+
+
         f = open("regions.txt", "a")
-        output = ("Games Played: " + str(self.gamesPlayed) + "\nArmy Data\n" )
-        output += (self.VectorMap.getRegionData("troops"))
+        output = ("Games Played: " + str(self.gamesPlayed) + "\nTensor Data\n" )
+        output += (vm.printTensor(vm.createTensor()))
         output += "\n"
 
-        output += ("Ally Data\n" )
-        output += (self.VectorMap.getRegionData("owner"))
-        output += "\n"
+        # output += ("Ally Data\n" )
+        # output += (self.VectorMap.getRegionData("owner"))
+        # output += "\n"
         f.write(output)
         f.close()
 
@@ -188,79 +191,24 @@ class Bot(object):
         '''
         Method to select our initial starting regions.
         
-        Currently selects 8 random regions and Australia region
+        Currently selects six random regions.
         '''
         shuffled_regions = Random.shuffle(Random.shuffle(options))
-        
+        return str(shuffled_regions[:6])#self.ActionManager.setup()
 
-        return ' '.join(shuffled_regions[:6])
     def place_troops(self):
-        '''
-        Method to place our troops.
+		'''
+		Method to place our troops.
         
-        Currently keeps places a maximum of two troops on random regions.
-        '''
-        placements = []
-        region_index = 0
-        troops_remaining = int(self.settings['starting_armies'])
-        
-        owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
-        duplicated_regions = owned_regions * (3 + int(troops_remaining / 2))
-        shuffled_regions = Random.shuffle(duplicated_regions)
-        
-        while troops_remaining:
-
-            region = shuffled_regions[region_index]
-            
-            if troops_remaining > 1:
-
-                placements.append([region.id, 2])
-
-                region.troop_count += 2
-                troops_remaining -= 2
-                
-            else:
-
-                 placements.append([region.id, 1])
-
-                 region.troop_count += 1
-                 troops_remaining -= 1
-
-            region_index += 1
-        
-        #amount_troops = allocate_troops    
-        return ', '.join(['%s place_armies %s %d' % (self.settings['your_bot'], placement[0],
-            placement[1]) for placement in placements])
+		Currently keeps places a maximum of two troops on random regions.
+		'''
+		amount_armies = self.ActionManager.allocate_troops(self.settings['starting_armies'])    
+		return ', '.join('%s place_armies %s %d' % ('your_bot', amount_troops[1][i], amount_troops[0][i])
+           for i in range(0, len(amount_troops)))
 
     def attack_transfer(self):
-        '''
-        Method to attack another region or transfer troops to allied regions.
-        
-        Currently checks whether a region has more than six troops placed to attack,
-        or transfers if more than 1 unit is available.
-        '''
-        attack_transfers = []
-        
-        owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
-        
-        for region in owned_regions:
-            neighbours = list(region.neighbours)
-            while len(neighbours) > 0:
-                target_region = neighbours[Random.randrange(0, len(neighbours))]
-                if region.owner != target_region.owner and region.troop_count > 6:
-                    attack_transfers.append([region.id, target_region.id, 5])
-                    region.troop_count -= 5
-                elif region.owner == target_region.owner and region.troop_count > 1:
-                    attack_transfers.append([region.id, target_region.id, region.troop_count - 1])
-                    region.troop_count = 1
-                else:
-                    neighbours.remove(target_region)
-        
-        if len(attack_transfers) == 0:
-            return 'No moves'
-        
-        return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0],
-            attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])
+        PrioritiesFromNeuralNetwork = None
+        return self.ActionManager.attack_transfer(PrioritiesFromNeuralNetwork)
 
 
 

@@ -193,6 +193,7 @@ class Bot(object):
         
         Currently selects six random regions.
         '''
+        #return (str(self.ActionManager.setup()[:6]))
         shuffled_regions = Random.shuffle(Random.shuffle(options))
         return str(shuffled_regions[:6])#self.ActionManager.setup()
 
@@ -202,41 +203,42 @@ class Bot(object):
         
 		Currently keeps places a maximum of two troops on random regions.
 		'''
-		amount_armies = self.ActionManager.allocate_troops(self.settings['starting_armies'])    
-		return ', '.join('%s place_armies %s %d' % ('your_bot', amount_troops[1][i], amount_troops[0][i])
-           for i in range(0, len(amount_troops)))
+		amount_troops = self.ActionManager.allocate_troops(self.settings['starting_armies'])    
+		output = ""
+		placements = []
+		for key in amount_troops.keys():
+			tmp = [key, amount_troops[key]]
+			placements.append(tmp)
+
+		return ', '.join(['%s place_armies %s %d' % (self.settings['your_bot'], placement[0],
+            placement[1]) for placement in placements])
 
     def attack_transfer(self):
-        PrioritiesFromNeuralNetwork = None
-        self.ActionManager.attack_transfer(PrioritiesFromNeuralNetwork)
-        '''
-        Method to attack another region or transfer troops to allied regions.
+		#PrioritiesFromNeuralNetwork = None
+		#self.ActionManager.attack_transfer(PrioritiesFromNeuralNetwork)
+
+		attack_transfers = []
         
-        Currently checks whether a region has more than six troops placed to attack,
-        or transfers if more than 1 unit is available.
-        '''
-        attack_transfers = []
+		owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
         
-        owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
+		for region in owned_regions:
+			neighbours = list(region.neighbours)
+			while len(neighbours) > 0:
+				target_region = neighbours[Random.randrange(0, len(neighbours))]
+				if region.owner != target_region.owner and region.troop_count > 6:
+					attack_transfers.append([region.id, target_region.id, 5])
+					region.troop_count -= 5
+				elif region.owner == target_region.owner and region.troop_count > 1:
+					attack_transfers.append([region.id, target_region.id, region.troop_count - 1])
+					region.troop_count = 1
+				else:
+					neighbours.remove(target_region)
         
-        for region in owned_regions:
-            neighbours = list(region.neighbours)
-            while len(neighbours) > 0:
-                target_region = neighbours[Random.randrange(0, len(neighbours))]
-                if region.owner != target_region.owner and region.troop_count > 6:
-                    attack_transfers.append([region.id, target_region.id, 5])
-                    region.troop_count -= 5
-                elif region.owner == target_region.owner and region.troop_count > 1:
-                    attack_transfers.append([region.id, target_region.id, region.troop_count - 1])
-                    region.troop_count = 1
-                else:
-                    neighbours.remove(target_region)
+		if len(attack_transfers) == 0:
+			return 'No moves'
         
-        if len(attack_transfers) == 0:
-            return 'No moves'
-        
-        return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0],
-            attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])
+		return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0],
+			attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])
 
 
 
