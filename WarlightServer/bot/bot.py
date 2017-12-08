@@ -12,7 +12,7 @@
 from sys import stderr, stdin, stdout
 from VectorMap import VectorMap
 from GameData import *
-from PlaceManager import PlaceManager
+from ActionManager import ActionManager
 
 class Bot(object):
     '''
@@ -29,9 +29,10 @@ class Bot(object):
         self.gamesPlayed = 0
 
         self.VectorMap = VectorMap()
-        self.PlaceManager = PlaceManager()
         self.settings = {}
         self.map = Map()
+        self.ActionManager = ActionManager(self.VectorMap, self.settings, self.map)
+
     def readFromServer(self):
         #pass 84 vector into NN
         pass
@@ -192,8 +193,8 @@ class Bot(object):
         
         Currently selects six random regions.
         '''
-        
-        return self.PlaceManager.setup()
+        shuffled_regions = Random.shuffle(Random.shuffle(options))
+        return str(shuffled_regions[:6])#self.ActionManager.setup()
 
     def place_troops(self):
         '''
@@ -233,6 +234,7 @@ class Bot(object):
             placement[1]) for placement in placements])
 
     def attack_transfer(self):
+        #self.ActionManager.attack_transfer()
         '''
         Method to attack another region or transfer troops to allied regions.
         

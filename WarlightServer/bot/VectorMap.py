@@ -53,7 +53,7 @@ class VectorMap(object):
 			inputTensor[int(rID)+41] = self.RegionData[rID]["troops"]
 		return inputTensor
 
-	def getRegionData(self, datatype):
+	def getDataString(self, datatype):
 		out = ""
 		count = 0
 		for rID in self.RegionData.keys():
@@ -63,6 +63,13 @@ class VectorMap(object):
 				out += "\n"
 			count += 1
 		return out
+
+	def getRegionData(self, datatype):
+		res = []
+		for rID in self.RegionData.keys():
+			data = self.RegionData[rID][datatype]
+			res.append(data)
+		return res
 
 	def printTensor(self, data):
 		out = ""
