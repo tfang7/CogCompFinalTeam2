@@ -234,7 +234,8 @@ class Bot(object):
             placement[1]) for placement in placements])
 
     def attack_transfer(self):
-        #self.ActionManager.attack_transfer()
+        PrioritiesFromNeuralNetwork = None
+        self.ActionManager.attack_transfer(PrioritiesFromNeuralNetwork)
         '''
         Method to attack another region or transfer troops to allied regions.
         
