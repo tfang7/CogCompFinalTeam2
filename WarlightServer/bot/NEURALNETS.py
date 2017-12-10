@@ -8,6 +8,8 @@ import csv
 import time
 import itertools
 import tensorflow.contrib.slim as slim
+import socket
+import pickle
 
 class PlaceNetwork():
     def __init__(self):       
@@ -23,8 +25,8 @@ class PlaceNetwork():
         self.Y2A = tf.nn.relu(tf.matmul(self.Y1,self.W2A)+self.B2A)
         self.Y2V = tf.nn.relu(tf.matmul(self.Y1,self.W2V)+self.B2V)
         
-        self.AW = tf.Variable(tf.random_normal([32,42]))
-        self.VW = tf.Variable(tf.random_normal([32,1]))
+        self.AW = tf.Variable(tf.truncated_normal([32,42]))
+        self.VW = tf.Variable(tf.truncated_normal([32,1]))
         
         self.Advantage = tf.matmul(self.Y2A,self.AW)
         self.Value = tf.matmul(self.Y2V,self.VW)
@@ -110,17 +112,39 @@ def updateTargetGraph(tfVars,tau):
 def updateTarget(op_holder,sess):
     for op in op_holder:
         sess.run(op)
-        
-def new_game():
-    pass
-def place_troops(a1):
-    pass
-def attack(a1):
-    return (np.random.randint(-5,5),True)
-def get_state():
-    return np.random.rand(1,84)[0]
+
+def mysend(sock, msg, msglen):
+    totalsent = 0
+
+    padding = (2400-msglen)*' '
+    msg += padding
+
+    while totalsent < 2400:
+        sent = sock.send(msg[totalsent:])
+        if sent == 0:
+            raise RuntimeError("socket connection broken")
+        totalsent = totalsent + sent
+
+def myreceive(sock,msglen):
+    chunks = []
+    bytes_recd = 0
+    while bytes_recd < 2400:
+        chunk = sock.recv(min(2400 - bytes_recd, 2048))
+        if chunk == '':
+            raise RuntimeError("socket connection broken")
+        chunks.append(chunk)
+        bytes_recd = bytes_recd + len(chunk)
+    return ''.join(chunks)
 
 def main():
+    serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    host = socket.gethostname()                           
+    port = 6998
+    serversocket.bind((host, port))                                  
+    serversocket.listen(1)                                           
+    clientsocket,addr = serversocket.accept()      
+    print("Got a connection from %s" % str(addr))
+
     #Setting the training parameters
     batch_size = 32 #How many experience traces to use for each training step.
     trace_length = 8 #How long each experience trace will be when training
@@ -128,9 +152,9 @@ def main():
     y = .99 #Discount factor on the target Q-values
     startE = 1 #Starting chance of random action
     endE = 0.1 #Final chance of random action
-    annealing_steps = 10000 #How many steps of training to reduce startE to endE.
-    num_episodes = 10000 #How many episodes of game environment to train network with.
-    pre_train_steps = 10000 #How many steps of random actions before training begins.
+    annealing_steps = 100 #How many steps of training to reduce startE to endE.
+    num_episodes = 10 #How many episodes of game environment to train network with.
+    pre_train_steps = 100 #How many steps of random actions before training begins.
     load_model = False #Whether to load a saved model.
     path = "./drqn" #The path to save our model to.
     max_epLength = 100 #The max allowed length of our episode.
@@ -166,14 +190,9 @@ def main():
         for i in range(num_episodes):
             episodeBuffer = experience_buffer()
             
-            #Reset environment and get first new observation
-            start_new = new_game()
-            while not start_new:
-                time.sleep(0.1)
-                start_new = new_game()
+            s = pickle.loads(myreceive(clientsocket,2400))
+            print(s)
 
-            s = get_state()
-            
             d = False
             rAll = 0
             j = 0
@@ -189,7 +208,10 @@ def main():
                 else:
                     a1 = sess.run(mainPN.predict,feed_dict={mainPN.X:[s]})[0]
                     place = sess.run(mainPN.Qout,feed_dict={mainPN.X:[s]})[0]
-                place_troops(place)
+                
+                place_pick = pickle.dumps(place)
+                mysend(clientsocket,place_pick,len(place_pick))
+                
                 
                 if np.random.rand(1) < e or total_steps < pre_train_steps:
                     a2 = np.random.randint(0,81)
@@ -197,9 +219,13 @@ def main():
                 else:
                     a2 = sess.run(mainFN.predict,feed_dict={mainFN.X:[s]})[0]
                     border = sess.run(mainFN.Qout,feed_dict={mainFN.X:[s]})[0]
-                r,d = attack(border)
                 
-                s1 = get_state()
+                border_pick = pickle.dumps(border)
+                mysend(clientsocket,border_pick,len(border_pick))
+
+                s1 = pickle.loads(myreceive(clientsocket,2400))
+                r = pickle.loads(myreceive(clientsocket,2400))[0]
+                print(s1, r)
                 total_steps += 1
                 
                 #Save the experience to our episode buffer.
@@ -238,7 +264,7 @@ def main():
                         
                 rAll += r
                 s = s1
-                
+                d = pickle.loads(myreceive(clientsocket,2400))[0]
                 if d == False:
                     break
             

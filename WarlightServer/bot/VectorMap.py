@@ -3,7 +3,6 @@ class VectorMap(object):
 		self.MapData = []
 		self.numRegions = 42
 		self.initBorders()
-		self.attack_threshold = 0.5
 	def Region(self, rId, player, troops):
 		return {"id": rId, "owner": player, "troops": troops}
 	def initBorders(self):
@@ -39,6 +38,22 @@ class VectorMap(object):
 		r["owner"] = self.enumRegion(regionOwner)
 		r["troops"] = regionArmy
 
+	def count_countries(self):
+		total = 0
+		for x in range(numRegions):
+			iden = x+1
+			if self.RegionData[x][1] == 1:
+				total += 1
+		return total
+
+	def count_troops(self):
+		total = 0
+		for x in range(numRegions):
+			iden = x+1
+			if self.RegionData[str(iden)]['owner'] == 1:
+				total += self.RegionData[str(iden)]['troops']
+		return total
+
 	def enumRegion(self, regionOwner):
 		res = 0
 		if regionOwner == self.player:
@@ -54,7 +69,8 @@ class VectorMap(object):
 			inputTensor[int(rID)+41] = self.RegionData[rID]["troops"]
 		return inputTensor
 
-	def getDataString(self, datatype):
+
+	def getRegionData(self, datatype):
 		out = ""
 		count = 0
 		for rID in self.RegionData.keys():
@@ -65,13 +81,6 @@ class VectorMap(object):
 			count += 1
 		return out
 
-	def getRegionData(self, datatype):
-		res = []
-		for rID in self.RegionData.keys():
-			data = self.RegionData[rID][datatype]
-			res.append(data)
-		return res
-
 	def printTensor(self, data):
 		out = ""
 		for i in range(len(data)):
@@ -79,4 +88,3 @@ class VectorMap(object):
 			if (i+1)%7==0:
 				out += "\n"
 		return out
-

@@ -8,7 +8,7 @@ class ActionManager(object):
         self.VectorMap = VectorMap
         self.settings = settings
         self.map = GameMap
-        self.soft_map = [random.random() for soft in range(42)]
+    
     def setup(self):
         list_42 = (xrange(0, 42))
         random.shuffle(list_42)
@@ -33,53 +33,67 @@ class ActionManager(object):
         #print(str(vm.attack_threshold))
         attack_transfers = [] #List to be returned
         owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
-        armies_per_action = 0
+        already_acting = []
+        
         for region in owned_regions:
+            #check if region is lameduck
+            if region.troop_count==1:
+                continue
             neighbours = list(region.neighbours)
-            actions = [] #The actions that we want to take. If there are multiple, split up armies to each.
+            action = -1 #The actions that we want to take. If there are multiple, then somebody didn't think through the logic properly
             index = 0
+            best_priority = 0 #finds best action for a given region
             for target_region in neighbours:
                 #Look up the border pair in VectorMap. Could be reversed, so check both orientations. 
                 if [region.id, target_region.id] in vm.borders:
-                    #print("found in border")
                     index = vm.borders.index([region.id, target_region.id])
-                    #print("found in border")
                 elif [target_region.id, region.id] in vm.borders:
-                    index = vm.borders.index([target_region.id, region.id])                            
-                if priorities[index] > vm.attack_threshold: #Currently arbitrary threshold for transfer/attack
-                    #print("exceeds attack threshold")
-                    actions.append(target_region.id)
-            armies_per_action = (region.troop_count - 1)/len(actions) if len(actions) > 0 else 0 #Split up armies equally; can change this to be based on priority
+                    index = vm.borders.index([region.id, target_region.id])
+                
+                #transfer case
+                if target_region in owned_regions:
+                    #if we have already covered this relationship
+                    if not (priorities[index] > vm.attack_threshold and priorities[index] > best_priority):
+                        continue
+                    if target_region.troop_count == 1 and region.troop_count > 1:
+                        best_priority = priorities[index]
+                        action = target_region.id
+                    if target_region.troop_count > 1 and region.troop_count > 1:
+                        #add logic here to determine best place to transfer
+                        #don't double count
+                        if target_region.id < region.id:
+                            continue
+                        best_priority = priorities[index]
+                        action = target_region.id
+                elif priorities[index] > vm.attack_threshold and priorities[index] > best_priority:
+                    action = target_region.id
+                    best_priority = priorities[index]
             
-        for action in actions:
-            attack_transfers.append([region.id, action, armies_per_action])
-
-        region.troop_count -= armies_per_action * len(actions) #Not necessarily just 1 because of integer division         
-        if armies_per_action == 0:
+            if action != -1:
+                attack_transfers.append([region.id, action, region.troop_count])
+        if len(attack_transfers) == 0:
             return 'No moves'  
-        return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0],
-       attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])
+        return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0], attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])
 
-    def allocate_troops(self, num_troops):
+    def allocate_troops(self, num_troops, priorities):
     #Given a list of countries and a number of troops, 
     #How many troops to each country depending on a soft-max function
         #priority/sum priorities * # troops floor 
         amount_troops = {}
-
         troops = int(num_troops)
-        sum_soft = sum(self.soft_map)
-        highest_priority = 0
-        for i in range(0, len(self.soft_map)):
-            if (self.VectorMap.RegionData[str(i + 1)]["owner"] == 1):
-                amount_troops[str(i + 1)] = (math.floor(float(num_troops) * (self.soft_map[i]/float(sum_soft))))
-                troops -= math.floor(float(num_troops) * (self.soft_map[i]/float(sum_soft)))
-                if self.soft_map[i] > self.soft_map[highest_priority]:
-                    highest_priority = i
-        if (troops > 0):
-            troops_addition = int(amount_troops[str(highest_priority + 1)])
-            amount_troops[str(highest_priority + 1)] = troops + troops_addition
+        owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
+        sum_ownership = sum([priorities[r.id] for r in owned_regions])
+        new_priorities = [i/sum_ownership for i in priorities]
+        troops_allocated = 0
+        for r in owned_regions:
+            alloc = math.floor(new_priorities[r.id]*num_troops)
+            amount_troops[r.id] = alloc
+            troops_allocated += alloc
+        max_val = max(amount_troops.values)
+        amount_troops[amount_troops.index(max_val)] += (num_troops - troops_allocated)
+        output = ""
+        placements = []
         for key in amount_troops.keys():
-            if amount_troops[key] == 0:
-                del amount_troops[key]
-
-        return (amount_troops) 
+            tmp = [key, amount_troops[key]]
+            placements.append(tmp)
+        return ', '.join(['%s place_armies %s %d' % (self.settings['your_bot'], placement[0], placement[1]) for placement in placements])
