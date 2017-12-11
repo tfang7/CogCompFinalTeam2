@@ -39,10 +39,12 @@ class Bot(object):
 
 
     def OnGameEnd(self):
-        print("game over")
+        #print("game over")
         self.newGame = True
         self.first_send = True
         self.gamesPlayed += 1
+        print("Final episode turn ", self.episode_turn)
+        self.episode_turn = 0
 
 
     # def mysend(self,sock, msg, msglen):
@@ -105,44 +107,38 @@ class Bot(object):
                     self.update_settings(parts[1:])
 
                 elif command == 'setup_map':
-                    print("Episode Turn: {}".format(self.episode_turn))
                     self.setup_map(parts[1:])
 
 
                 elif command == 'update_map':
-                    print()
+                    if (self.episode_turn != 0):
+                        self.episode_turn += 1
+
+                    #print("Episode Turn: {}".format(self.episode_turn))
                     countries_owned = self.VectorMap.count_countries()
                     troops_owned = self.VectorMap.count_troops()
                     self.update_map(parts[1:])
                     tensor = np.array(self.VectorMap.createTensor())
 
                     if (self.episode_turn == 0):
-                        self.Trainer.init_episode(tensor, self.episode_turn)
+                      #  print("INIT EPISODE\n")
+                        self.Trainer.init_episode(tensor, self.gamesPlayed, self.episode_turn)
                         self.episode_turn += 1
                     else:
+                       # print("COMPUTING REWARD\n")
                         self.reward = self.compute_reward(countries_owned,troops_owned)
                         rewards = np.array([self.reward])
-                        self.Trainer.train_reward(tensor, rewards)
-
-                        
-
-                   #  vec84 = np.array(self.VectorMap.createTensor())
-                   # # send84 = pickle.dumps(np.random.random(84))
-                   #  #mysend(s,send84,len(send84)) 
-                    
-
-                   #    #  send_r = pickle.dumps(np.array([self.reward]))
-                   #     # mysend(s,sendr,len(send_r))
-                   #  else:
-                   #      self.first_send = False
-
+                        if (self.gamesPlayed == 0):
+                            self.Trainer.train_first_game(tensor, rewards)
+                        else:
+                            self.Trainer.train_reward(tensor, rewards, self.episode_turn)
+                   # print("FINISHED!!!")
                 elif command == 'pick_starting_regions':
                     stdout.write(self.pick_starting_regions(parts[2:]) + '\n')
                     stdout.flush()
                     self.newGame = False
 
                 elif command == 'go':
-                    self.episode_turn += 1
                     sub_command = parts[1]
                     tensor = np.array(self.VectorMap.createTensor())
                     moves = self.Trainer.get_moves(self.episode_turn)
@@ -150,7 +146,6 @@ class Bot(object):
                         output = self.place_troops(moves[0])
                         stdout.write(output)
                         stdout.flush()
-
                     elif sub_command == 'attack/transfer':
                         output = self.attack_transfer(moves[1])
                         stdout.write(output)
@@ -158,6 +153,7 @@ class Bot(object):
                     else:
                         stderr.write('Unknown sub command: %s\n' % (sub_command))
                         stderr.flush()
+                    #print("Made it through go")
                 elif command == "opponent_moves":
                     pass
                 elif command == "GAME_OVER":

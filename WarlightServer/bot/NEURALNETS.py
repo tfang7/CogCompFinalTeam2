@@ -108,7 +108,6 @@ class Trainer(object):
         print("Created Trainer object\n")
         #Setting the training parameters
         self.batch_size = 4 #How many experience traces to use for each training step.
-        self.trace_length = 8 #How long each experience trace will be when training
         self.update_freq = 5 #How often to perform a training step.
         self.y = .99 #Discount factor on the target Q-values
         self.startE = 1 #Starting chance of random action
@@ -144,7 +143,7 @@ class Trainer(object):
         self.sess.close()
 
 
-    def init_episode(self,initvec84,epnum):
+    def init_episode(self,initvec84, epnum, steps):
         if epnum == 0:
             self.init = tf.global_variables_initializer()
             self.targetOps = self.updateTargetGraph(tf.trainable_variables(),self.tau)
@@ -159,10 +158,9 @@ class Trainer(object):
             self.sess.run(self.init) 
         else: #at the end of an episode update
             self.myBuffer.add(self.episodeBuffer.buffer)
-            self.jList.append(self.total_steps)
+            self.jList.append(steps)
             self.rList.append(self.rAll)
         #create lists to contain total rewards and steps per episode
-        self.total_steps = 0
         self.episodeBuffer = experience_buffer()
         self.s = initvec84
         self.rAll = 0
@@ -170,9 +168,9 @@ class Trainer(object):
 
     def get_moves(self,turn):
         with self.sess:
-            self.total_steps = turn
+            total_steps = turn
             #Choose an action by greedily (with e chance of random action) from the Q-network
-            if np.random.rand(1) < self.e or self.total_steps < self.pre_train_steps:
+            if np.random.rand(1) < self.e or total_steps < self.pre_train_steps:
                 self.a1 = np.random.randint(0,41)
                 self.place = np.random.rand(1,42)[0]
             else:
@@ -180,7 +178,7 @@ class Trainer(object):
                 self.place = self.sess.run(self.mainPN.Qout,feed_dict={self.mainPN.X:[self.s]})[0]
             
             
-            if np.random.rand(1) < self.e or self.total_steps < self.pre_train_steps:
+            if np.random.rand(1) < self.e or total_steps < self.pre_train_steps:
                 self.a2 = np.random.randint(0,81)
                 self.border = np.random.rand(1,82)[0]
             else:
@@ -189,18 +187,19 @@ class Trainer(object):
         return self.place, self.border
 
 
-    def train_reward(self,vec_84,r):
+    def train_reward(self,vec_84,r, total_steps):
+       # print("T steps: {} -- PT Steps: {}".format(total_steps, self.pre_train_steps))
         with self.sess:
             s1 = vec_84 
-            
             #Save the experience to our episode buffer.
             self.episodeBuffer.add(np.reshape(np.array([self.s,self.a1,self.a2,r,s1]),[1,5])) 
-            
-            if self.total_steps > self.pre_train_steps:
+            #print("Len of mybuffer.buffer: {}".format(len(self.myBuffer.buffer)))
+            if total_steps > self.pre_train_steps:
+                #print("Mybuffer",len(self.myBuffer.buffer))
                 if self.e > self.endE:
                     self.e -= self.stepDrop
                 
-                if self.total_steps % (self.update_freq) == 0:
+                if total_steps % (self.update_freq) == 0:
                     #Get a random batch of experiences.
                     #print("MY BUFFER:" + str(self.myBuffer.buffer_size))
                     trainBatch = self.myBuffer.sample(self.batch_size)
@@ -231,5 +230,8 @@ class Trainer(object):
             self.rAll += r
             self.s = s1
 
-
-  
+    def train_first_game(self,vec_84,r):
+        s1 = vec_84
+        self.episodeBuffer.add(np.reshape(np.array([self.s,self.a1,self.a2,r,s1]),[1,5]))
+        self.rAll += r
+        self.s = s1

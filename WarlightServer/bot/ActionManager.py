@@ -32,7 +32,7 @@ class ActionManager(object):
         attack_transfers = [] #List to be returned
         owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
         already_acting = []
-        
+        print("\nwe own ",len(owned_regions),'\n')
         for region in owned_regions:
             #check if region is lameduck
             if region.troop_count==1:
@@ -42,15 +42,17 @@ class ActionManager(object):
             index = 0
             best_priority = 0 #finds best action for a given region
             for target_region in neighbours:
+                b = [int(region.id), int(target_region.id)]
                 #Look up the border pair in VectorMap. Could be reversed, so check both orientations. 
-                if [region.id, target_region.id] in vm.borders:
-                    index = vm.borders.index([region.id, target_region.id])
-                elif [target_region.id, region.id] in vm.borders:
-                    index = vm.borders.index([region.id, target_region.id])
+                if b in vm.borders:
+                    index = vm.borders.index(b)
+                elif b[::-1] in vm.borders:
+                    index = vm.borders.index(b[::-1])
                 
                 #transfer case
                 if target_region in owned_regions:
                     #if we have already covered this relationship
+                    print("[{}->{}] p[i] @ {}".format(region.id, target_region.id, priorities[index]))
                     if not (priorities[index] > vm.attack_threshold and priorities[index] > best_priority):
                         continue
                     if target_region.troop_count == 1 and region.troop_count > 1:
@@ -71,6 +73,7 @@ class ActionManager(object):
                 attack_transfers.append([region.id, action, region.troop_count])
         if len(attack_transfers) == 0:
             return 'No moves'  
+      #  print('\nTEST, '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0], attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers]))
         return ', '.join(['%s attack/transfer %s %s %s' % (self.settings['your_bot'], attack_transfer[0], attack_transfer[1], attack_transfer[2]) for attack_transfer in attack_transfers])
 
     def allocate_troops(self, num_troops, priorities):
@@ -79,31 +82,40 @@ class ActionManager(object):
         #priority/sum priorities * # troops floor 
         amount_troops = {}
         troops = int(num_troops)
-        print("TROOP COUNT:" + str(num_troops))
+        #print("TROOP COUNT:" + num_troops + "\n")
         owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
-        print("LENGTH OF OWNED REGIONS: " + str(len(owned_regions)))
+      #  print("LENGTH OF OWNED REGIONS: " + str(len(owned_regions)))
         sum_ownership = sum([priorities[int(r.id)-1] for r in owned_regions])
-
+        #print("SUM : " + str(sum_ownership))
         new_priorities = [i/sum_ownership for i in priorities]
         troops_allocated = 0
         maxVal = 0
         maxID = 0
         for r in owned_regions:
             alloc = float(priorities[int(r.id)-1]) * float(num_troops)
-            print("RID: " +  str(alloc) + " | " + str(int(alloc)))
-            amount_troops[int(r.id)] = int(alloc)
+            amount_troops[(r.id)] = int(alloc)
             troops_allocated += int(alloc)
+            #print(r.id + ": " +  str(alloc) + " | " + str(float(priorities[int(r.id)-1])))
+
+
             if (alloc > maxVal):
                 maxVal = alloc
-                maxID = int(r.id)
-        print("AMOUNT TROOPS:" + str(amount_troops))
-        print("TROOPS ALLOCATED:" + str(troops_allocated))
+                maxID = (r.id)
         amount_troops[maxID] += (troops - troops_allocated)
+
         output = ""
         placements = []
+        counter = 0
         for key in amount_troops.keys():
             tmp = [key, amount_troops[key]]
-            if (amount_troops[key] > 0):
+            if (amount_troops[key] > 0 and (counter+amount_troops[key]) <= troops ):
+                counter += amount_troops[key]
                 placements.append(tmp)
-        print(', '.join(['%s place_armies %s %d' % (self.settings['your_bot'], placement[0], placement[1]) for placement in placements]))
+
+        if (troops - counter > 0):
+            amount_troops[maxID] += troops - counter
+
+        if (len(placements) == 0):
+            return 'No moves'
+       # print(', '.join(['\n%s TEST place_armies %s %d\n' % (self.settings['your_bot'], placement[0], placement[1]) for placement in placements]))
         return ', '.join(['%s place_armies %s %d' % (self.settings['your_bot'], placement[0], placement[1]) for placement in placements])
