@@ -39,7 +39,8 @@ class Bot(object):
 
     def TrainAgent(self, inputTensor):
         targ = self.Trainer.run
-        t = _thread.start_new_thread(targ, (inputTensor,))
+        self.Trainer.run(inputTensor)
+        #t = _thread.start_new_thread(targ, (inputTensor,))
 
     def OnGameEnd(self):
         print("game over")

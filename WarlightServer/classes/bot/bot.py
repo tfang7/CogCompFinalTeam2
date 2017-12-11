@@ -1,24 +1,19 @@
-#---------------------------------------------------------------------#
-# Warlight AI Challenge - Starter Bot                                 #
-# ============                                                        #
-#                                                                     #
-# Last update: 20 Mar, 2014                                           #
-#                                                                     #
-# @author Jackie <jackie@starapple.nl>                                #
-# @version 1.0                                                        #
-# @license MIT License (http://opensource.org/licenses/MIT)           # 
-#---------------------------------------------------------------------#
-
 from sys import stderr, stdin, stdout
 from VectorMap import VectorMap
 from GameData import *
 from ActionManager import ActionManager
-
+import numpy as np
+import socket
+import pickle
+import time
+import random
+import NEURALNETS
+import _thread
 class Bot(object):
     '''
     Main bot class
     '''
-    def __init__(self):
+    def __init__(self,sock=None):
         '''
         Initializes a map instance and an empty dict for settings
         '''
@@ -28,24 +23,60 @@ class Bot(object):
         self.newGame = False
         self.gamesPlayed = 0
 
+        self.episode_turn = 0
+        self.vec84 = np.zeros(84)
+
         self.VectorMap = VectorMap()
         self.settings = {}
         self.map = Map()
         self.ActionManager = ActionManager(self.VectorMap, self.settings, self.map)
 
-    def readFromServer(self):
-        #pass 84 vector into NN
-        pass
-    def WriteFromServer(self):
-        #obtain output from NN        
-        pass
-    def OnGameStart(self):
-        self.newGame = False
-        #neural network
+        self.Trainer = NEURALNETS.Trainer()
+        # self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        # host = socket.gethostname()                           
+        # port = 6998
+        # self.socket.connect((host, port))  
+
+    def TrainAgent(self, inputTensor):
+        targ = self.Trainer.run
+        t = _thread.start_new_thread(targ, (inputTensor,))
+
     def OnGameEnd(self):
         print("game over")
         self.newGame = True
+        self.first_send = True
         self.gamesPlayed += 1
+
+
+    # def mysend(self,sock, msg, msglen):
+    #     totalsent = 0
+
+    #     padding = (2400-msglen)*' '
+    #     msg += padding
+
+    #     while totalsent < 2400:
+    #         sent = sock.send(msg[totalsent:])
+    #         if sent == 0:
+    #             raise RuntimeError("socket connection broken")
+    #         totalsent = totalsent + sent
+
+    # def myreceive(self,sock,msglen):
+    #     chunks = []
+    #     bytes_recd = 0
+    #     while bytes_recd < 2400:
+    #         chunk = sock.recv(min(2400 - bytes_recd, 2048))
+    #         if chunk == '':
+    #             raise RuntimeError("socket connection broken")
+    #         chunks.append(chunk)
+    #         bytes_recd = bytes_recd + len(chunk)
+    #     return ''.join(chunks)
+
+    def compute_reward(self, countries,troops):
+        delta_countries_owned = self.VectorMap.count_countries()-countries
+        delta_troops_owned = self.VectorMap.count_troops()-troops
+        return delta_countries_owned
+        # return delta_troops_owned
+
     def run(self):
         '''
         Main loop
@@ -53,6 +84,9 @@ class Bot(object):
         Keeps running while being fed data from stdin.
         Writes output to stdout, remember to flush!
         '''
+        
+        self.first_send = True
+        self.reward = 0
         while not stdin.closed:
             try:
                 rawline = stdin.readline()
@@ -73,30 +107,49 @@ class Bot(object):
                 # All different commands besides the opponents' moves
                 if command == 'settings':
                     self.update_settings(parts[1:])
-                    self.OnGameStart()
 
                 elif command == 'setup_map':
                     self.setup_map(parts[1:])
 
                 elif command == 'update_map':
+                    # countries_owned = self.VectorMap.count_countries()
+                    # troops_owned =self.VectorMap.count_troops()
+
+
                     self.update_map(parts[1:])
+                   #  vec84 = np.array(self.VectorMap.createTensor())
+                   # # send84 = pickle.dumps(np.random.random(84))
+                   #  #mysend(s,send84,len(send84)) 
+                    
+                   #  if not self.first_send:
+                   #      self.reward = self.compute_reward(countries_owned,troops_owned)
+                   #      rewards = np.array([self.reward])
+
+                   #    #  send_r = pickle.dumps(np.array([self.reward]))
+                   #     # mysend(s,sendr,len(send_r))
+                   #  else:
+                   #      self.first_send = False
 
                 elif command == 'pick_starting_regions':
                     stdout.write(self.pick_starting_regions(parts[2:]) + '\n')
                     stdout.flush()
+                    self.newGame = False
 
                 elif command == 'go':
 
                     sub_command = parts[1]
+                    tensor = self.VectorMap.createTensor()
 
                     if sub_command == 'place_armies':
-
-                        stdout.write(self.place_troops() + '\n')
+                      #  place42 = pickle.loads(myreceive(s,2400))
+                       # stdout.write(self.place_troops(place42) + '\n')
+                        self.TrainAgent(tensor)
                         stdout.flush()
 
                     elif sub_command == 'attack/transfer':
-
-                        stdout.write(self.attack_transfer() + '\n')
+                        self.TrainAgent(tensor)
+                       # attack82 = pickle.loads(myreceive(s,2400))  
+                       # stdout.write(self.attack_transfer(attack82) + '\n')
                         stdout.flush()
                     else:
                         stderr.write('Unknown sub command: %s\n' % (sub_command))
@@ -105,12 +158,15 @@ class Bot(object):
                     pass
                 elif command == "GAME_OVER":
                     self.OnGameEnd()
+                    continue
                 else:
                     stderr.write('Unknown command: %s\n' % (command))
                     stderr.flush()
             except EOFError:
                 return
-    
+           # send_ng = pickle.dumps(np.array([self.newGame]))
+            #mysend(s,sendr,len(send_ng))
+
     def update_settings(self, options):
         '''
         Method to update game settings at the start of a new game.
@@ -193,27 +249,17 @@ class Bot(object):
         
         Currently selects six random regions.
         '''
+        #return (str(self.ActionManager.setup()[:6]))
         shuffled_regions = Random.shuffle(Random.shuffle(options))
         return str(shuffled_regions[:6])#self.ActionManager.setup()
 
-    def place_troops(self):
-		'''
-		Method to place our troops.
+    def place_troops(self,priorities42):
+        place = self.ActionManager.allocate_troops(self.settings['starting_armies'],priorities42)    
+        return place
+
+    def attack_transfer(self,priorities82):
+        attack = self.ActionManager.attack_transfer(priorities82)
+        return attack
         
-		Currently keeps places a maximum of two troops on random regions.
-		'''
-		amount_armies = self.ActionManager.allocate_troops(self.settings['starting_armies'])    
-		return ', '.join('%s place_armies %s %d' % ('your_bot', amount_troops[1][i], amount_troops[0][i])
-           for i in range(0, len(amount_troops)))
-
-    def attack_transfer(self):
-        PrioritiesFromNeuralNetwork = None
-        return self.ActionManager.attack_transfer(PrioritiesFromNeuralNetwork)
-
-
-
 if __name__ == '__main__':
-    '''
-    Not used as module, so run
-    '''
     Bot().run()

@@ -184,7 +184,7 @@ class Trainer(object):
                         #mysend(data)
                         
                         
-                        if np.random.rand(1) < e or self.total_steps < self.pre_train_steps:
+                        if np.random.rand(1) < self.e or self.total_steps < self.pre_train_steps:
                             a2 = np.random.randint(0,81)
                             border = np.random.rand(1,82)[0]
                         else:
@@ -193,10 +193,12 @@ class Trainer(object):
                         
                         #border_pick = pickle.dumps(border)
                         #mysend(data)
-
+                        s1 = 0
+                        s = 0
+                        r = 0
                        # s1 = pickle.loads(myreceive(clientsocket,2400))
                        # r = pickle.loads(myreceive(clientsocket,2400))[0]
-                        print(s1, r)
+                        #print(s1, r)
                         self.total_steps += 1
                         
                         #Save the experience to our episode buffer.
@@ -206,22 +208,22 @@ class Trainer(object):
                             if self.e > self.endE:
                                 self.e -= self.stepDrop
                             
-                            if self.total_steps % (update_freq) == 0:
+                            if self.total_steps % (self.update_freq) == 0:
                                 #Get a random batch of experiences.
                                 trainBatch = self.myBuffer.sample(self.batch_size)
                                 
                                 #Below we perform the Double-DQN update to the target Q-values
-                                P1 = sess.run(self.mainPN.predict,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,4])})
-                                P2 = sess.run(self.targetPN.Qout,feed_dict={self.targetPN.X:np.vstack(trainBatch[:,4])})
-                                F1 = sess.run(self.mainFN.predict,feed_dict={self.mainFN.X:np.vstack(trainBatch[:,4])})
-                                F2 = sess.run(self.targetFN.Qout,feed_dict={self.targetFN.X:np.vstack(trainBatch[:,4])})
+                                P1 = self.sess.run(self.mainPN.predict,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,4])})
+                                P2 = self.sess.run(self.targetPN.Qout,feed_dict={self.targetPN.X:np.vstack(trainBatch[:,4])})
+                                F1 = self.sess.run(self.mainFN.predict,feed_dict={self.mainFN.X:np.vstack(trainBatch[:,4])})
+                                F2 = self.sess.run(self.targetFN.Qout,feed_dict={self.targetFN.X:np.vstack(trainBatch[:,4])})
                                 
                                 end_multiplier = -(trainBatch[:,5] - 1)
                                 
                                 doubleP = P2[range(batch_size),P1]
                                 targetP = trainBatch[:,3] + (y*doubleP * end_multiplier)
                                 #Update the network with our target values.
-                                _ = sess.run(self.mainPN.updateModel,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,0]),
+                                _ = self.sess.run(self.mainPN.updateModel,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,0]),
                                                                            self.mainPN.targetQ:targetP, 
                                                                            self.mainPN.actions:trainBatch[:,1]})
                                 
@@ -234,7 +236,7 @@ class Trainer(object):
                                 updateTarget(targetOps,self.sess) #Update the target network toward the primary network.
                                 
                         rAll += r
-                        s = s1
+                       # s = s1
                         d = False
                        # d = pickle.loads(myreceive(clientsocket,2400))[0]
                         if d == False:
