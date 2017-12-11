@@ -106,9 +106,10 @@ class ActionManager(object):
         output = ""
         placements = []
         counter = 0
+
         for key in amount_troops.keys():
             tmp = [key, amount_troops[key]]
-            if (amount_troops[key] > 0 and (counter+amount_troops[key]) <= troops ):
+            if (amount_troops[key] > 0 and ( counter+amount_troops[key]) <= troops ):
                 counter += amount_troops[key]
                 placements.append(tmp)
 

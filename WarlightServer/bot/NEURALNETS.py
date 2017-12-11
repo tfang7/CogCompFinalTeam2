@@ -157,6 +157,7 @@ class Trainer(object):
             self.sess = tf.Session() 
             self.sess.run(self.init) 
         else: #at the end of an episode update
+            #writeFile(r, stepNum, epnum)
             self.myBuffer.add(self.episodeBuffer.buffer)
             self.jList.append(steps)
             self.rList.append(self.rAll)
