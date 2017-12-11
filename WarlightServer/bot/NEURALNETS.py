@@ -4,7 +4,6 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import scipy.misc
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 import csv
 import time
 import itertools
@@ -12,7 +11,7 @@ import tensorflow.contrib.slim as slim
 import socket
 import pickle
 
-class PlaceNetwork():
+class PlaceNetwork(object):
     def __init__(self):       
         self.X = tf.placeholder("float", [None, 84])
         self.W1 = tf.Variable(tf.truncated_normal([84,64],stddev=.1))
@@ -50,7 +49,7 @@ class PlaceNetwork():
         self.trainer = tf.train.AdamOptimizer(learning_rate=0.0001)
         self.updateModel = self.trainer.minimize(self.loss)
 
-class FightNetwork():
+class FightNetwork(object):
     def __init__(self):
         self.X = tf.placeholder("float", [None, 84])
         self.W1 = tf.Variable(tf.truncated_normal([84,128],stddev=.1))
@@ -100,24 +99,15 @@ class experience_buffer(object):
         self.buffer.extend(experience)
             
     def sample(self,size):
-        return np.reshape(np.array(random.sample(self.buffer,size)),[size,6])
+        return np.reshape(np.array(random.sample(self.buffer,size)),[size,5])
 
-def updateTargetGraph(tfVars,tau):
-    total_vars = len(tfVars)
-    op_holder = []
-    for idx,var in enumerate(tfVars[0:total_vars//2]):
-        op_holder.append(tfVars[idx+total_vars//2].assign((var.value()*tau) + ((1-tau)*tfVars[idx+total_vars//2].value())))
-    return op_holder
-
-def updateTarget(op_holder,sess):
-    for op in op_holder:
-        sess.run(op)
 
 class Trainer(object):
+
     def __init__(self):
         print("Created Trainer object\n")
         #Setting the training parameters
-        self.batch_size = 32 #How many experience traces to use for each training step.
+        self.batch_size = 4 #How many experience traces to use for each training step.
         self.trace_length = 8 #How long each experience trace will be when training
         self.update_freq = 5 #How often to perform a training step.
         self.y = .99 #Discount factor on the target Q-values
@@ -139,110 +129,107 @@ class Trainer(object):
         self.targetPN = PlaceNetwork()
         self.targetFN = FightNetwork()
 
-        #initialize everything
-        self.init = tf.global_variables_initializer()
-        self.trainables = tf.trainable_variables()
-        self.targetOps = updateTargetGraph(self.trainables, self.tau)
-        self.myBuffer = experience_buffer()
+    def updateTargetGraph(self,tfVars,tau):
+        total_vars = len(tfVars)
+        op_holder = []
+        for idx,var in enumerate(tfVars[0:total_vars//2]):
+            op_holder.append(tfVars[idx+total_vars//2].assign((var.value()*tau) + ((1-tau)*tfVars[idx+total_vars//2].value())))
+        return op_holder
 
+    def updateTarget(self,op_holder):
+        for op in op_holder:
+            self.sess.run(op)
+
+    def close_sess(self):
+        self.sess.close()
+
+
+    def init_episode(self,initvec84,epnum):
+        if epnum == 0:
+            self.init = tf.global_variables_initializer()
+            self.targetOps = self.updateTargetGraph(tf.trainable_variables(),self.tau)
+            self.myBuffer = experience_buffer()
+            #Set the rate of random action decrease. 
+            self.e = self.startE
+            self.stepDrop = (self.startE - self.endE)/self.annealing_steps
+            self.jList = []
+            self.rList = []
+            # self.sess = tf.InteractiveSession()  
+            self.sess = tf.Session() 
+            self.sess.run(self.init) 
+        else: #at the end of an episode update
+            self.myBuffer.add(self.episodeBuffer.buffer)
+            self.jList.append(self.total_steps)
+            self.rList.append(self.rAll)
         #create lists to contain total rewards and steps per episode
-        self.jList = []
-        self.rList = []
         self.total_steps = 0
-        #Set the rate of random action decrease. 
-        self.e = self.startE
-        self.stepDrop = (self.startE - self.endE)/self.annealing_steps
-        self.sess = None
+        self.episodeBuffer = experience_buffer()
+        self.s = initvec84
+        self.rAll = 0
+        return
 
-    def run(self, inputTensor):
-        print("Starting Session")
-        with tf.Session() as self.sess:
-                self.sess.run(self.init)
-                for i in range(self.num_episodes):
-                    episodeBuffer = experience_buffer()
-                    #data = myreceive(clientsocket,2400)
-                   # s = pickle.loads(myreceive(clientsocket,2400))
-                   # print(s)
+    def get_moves(self,turn):
+        with self.sess:
+            self.total_steps = turn
+            #Choose an action by greedily (with e chance of random action) from the Q-network
+            if np.random.rand(1) < self.e or self.total_steps < self.pre_train_steps:
+                self.a1 = np.random.randint(0,41)
+                self.place = np.random.rand(1,42)[0]
+            else:
+                self.a1 = self.sess.run(self.mainPN.predict,feed_dict={self.mainPN.X:[self.s]})[0]
+                self.place = self.sess.run(self.mainPN.Qout,feed_dict={self.mainPN.X:[self.s]})[0]
+            
+            
+            if np.random.rand(1) < self.e or self.total_steps < self.pre_train_steps:
+                self.a2 = np.random.randint(0,81)
+                self.border = np.random.rand(1,82)[0]
+            else:
+                self.a2 = self.sess.run(self.mainFN.predict,feed_dict={self.mainFN.X:[self.s]})[0]
+                self.border = self.sess.run(self.mainFN.Qout,feed_dict={self.mainFN.X:[self.s]})[0]
+        return self.place, self.border
 
-                    d = False
-                    rAll = 0
-                    j = 0
-                    #s = input vector
-                    #The Q-Networks
-                    while j < self.max_epLength: 
-                        j+=1
-                        
-                        #Choose an action by greedily (with e chance of random action) from the Q-network
-                        if np.random.rand(1) < self.e or self.total_steps < self.pre_train_steps:
-                            a1 = np.random.randint(0,41)
-                            place = np.random.rand(1,42)[0]
-                        else:
-                            a1 = self.sess.run(self.mainPN.predict,feed_dict={self.mainPN.X:[s]})[0]
-                            place = self.sess.run(self.mainPN.Qout,feed_dict={self.mainPN.X:[s]})[0]
-                        
-                       # place_pick = pickle.dumps(place)
-                        #mysend(data)
-                        
-                        
-                        if np.random.rand(1) < self.e or self.total_steps < self.pre_train_steps:
-                            a2 = np.random.randint(0,81)
-                            border = np.random.rand(1,82)[0]
-                        else:
-                            a2 = self.sess.run(self.mainFN.predict,feed_dict={self.mainFN.X:[s]})[0]
-                            border = self.sess.run(self.mainFN.Qout,feed_dict={self.mainFN.X:[s]})[0]
-                        
-                        #border_pick = pickle.dumps(border)
-                        #mysend(data)
-                        s1 = 0
-                        s = 0
-                        r = 0
-                       # s1 = pickle.loads(myreceive(clientsocket,2400))
-                       # r = pickle.loads(myreceive(clientsocket,2400))[0]
-                        #print(s1, r)
-                        self.total_steps += 1
-                        
-                        #Save the experience to our episode buffer.
-                        episodeBuffer.add(np.reshape(np.array([s,a1,a2,r,s1,d]),[1,6])) 
-                        
-                        if self.total_steps > self.pre_train_steps:
-                            if self.e > self.endE:
-                                self.e -= self.stepDrop
-                            
-                            if self.total_steps % (self.update_freq) == 0:
-                                #Get a random batch of experiences.
-                                trainBatch = self.myBuffer.sample(self.batch_size)
-                                
-                                #Below we perform the Double-DQN update to the target Q-values
-                                P1 = self.sess.run(self.mainPN.predict,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,4])})
-                                P2 = self.sess.run(self.targetPN.Qout,feed_dict={self.targetPN.X:np.vstack(trainBatch[:,4])})
-                                F1 = self.sess.run(self.mainFN.predict,feed_dict={self.mainFN.X:np.vstack(trainBatch[:,4])})
-                                F2 = self.sess.run(self.targetFN.Qout,feed_dict={self.targetFN.X:np.vstack(trainBatch[:,4])})
-                                
-                                end_multiplier = -(trainBatch[:,5] - 1)
-                                
-                                doubleP = P2[range(batch_size),P1]
-                                targetP = trainBatch[:,3] + (y*doubleP * end_multiplier)
-                                #Update the network with our target values.
-                                _ = self.sess.run(self.mainPN.updateModel,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,0]),
-                                                                           self.mainPN.targetQ:targetP, 
-                                                                           self.mainPN.actions:trainBatch[:,1]})
-                                
-                                doubleF = F2[range(batch_size),F1]
-                                targetF = trainBatch[:,3] + (y*doubleF * end_multiplier)
-                                #Update the network with our target values.
-                                _ = sess.run(self.mainFN.updateModel,feed_dict={self.mainFN.X:np.vstack(trainBatch[:,0]),
-                                                                           self.mainFN.targetQ:targetF, 
-                                                                           self.mainFN.actions:trainBatch[:,2]})
-                                updateTarget(targetOps,self.sess) #Update the target network toward the primary network.
-                                
-                        rAll += r
-                       # s = s1
-                        d = False
-                       # d = pickle.loads(myreceive(clientsocket,2400))[0]
-                        if d == False:
-                            break
+
+    def train_reward(self,vec_84,r):
+        with self.sess:
+            s1 = vec_84 
+            
+            #Save the experience to our episode buffer.
+            self.episodeBuffer.add(np.reshape(np.array([self.s,self.a1,self.a2,r,s1]),[1,5])) 
+            
+            if self.total_steps > self.pre_train_steps:
+                if self.e > self.endE:
+                    self.e -= self.stepDrop
+                
+                if self.total_steps % (self.update_freq) == 0:
+                    #Get a random batch of experiences.
+                    #print("MY BUFFER:" + str(self.myBuffer.buffer_size))
+                    trainBatch = self.myBuffer.sample(self.batch_size)
                     
-                    self.myBuffer.add(episodeBuffer.buffer)
-                    self.jList.append(j)
-                    self.rList.append(rAll)
-        return 1
+                    #Below we perform the Double-DQN update to the target Q-values
+                    P1 = self.sess.run(self.mainPN.predict,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,4])})
+                    P2 = self.sess.run(self.targetPN.Qout,feed_dict={self.targetPN.X:np.vstack(trainBatch[:,4])})
+                    F1 = self.sess.run(self.mainFN.predict,feed_dict={self.mainFN.X:np.vstack(trainBatch[:,4])})
+                    F2 = self.sess.run(self.targetFN.Qout,feed_dict={self.targetFN.X:np.vstack(trainBatch[:,4])})
+                    
+                    end_multiplier = -(trainBatch[:,5] - 1)
+                    
+                    doubleP = P2[range(batch_size),P1]
+                    targetP = trainBatch[:,3] + (y*doubleP * end_multiplier)
+                    #Update the network with our target values.
+                    _ = self.sess.run(self.mainPN.updateModel,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,0]),
+                                                               self.mainPN.targetQ:targetP, 
+                                                               self.mainPN.actions:trainBatch[:,1]})
+                    
+                    doubleF = F2[range(batch_size),F1]
+                    targetF = trainBatch[:,3] + (y*doubleF * end_multiplier)
+                    #Update the network with our target values.
+                    _ = self.sess.run(self.mainFN.updateModel,feed_dict={self.mainFN.X:np.vstack(trainBatch[:,0]),
+                                                               self.mainFN.targetQ:targetF, 
+                                                               self.mainFN.actions:trainBatch[:,2]})
+                    self.updateTarget(self.targetOps) #Update the target network toward the primary network.
+                    
+            self.rAll += r
+            self.s = s1
+
+
+  

@@ -7,7 +7,7 @@ import socket
 import pickle
 import time
 import random
-import NEURALNETS
+import NeuralNets
 import _thread
 class Bot(object):
     '''
@@ -31,16 +31,12 @@ class Bot(object):
         self.map = Map()
         self.ActionManager = ActionManager(self.VectorMap, self.settings, self.map)
 
-        self.Trainer = NEURALNETS.Trainer()
+        self.Trainer = NeuralNets.Trainer()
         # self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
         # host = socket.gethostname()                           
         # port = 6998
         # self.socket.connect((host, port))  
 
-    def TrainAgent(self, inputTensor):
-        targ = self.Trainer.run
-        self.Trainer.run(inputTensor)
-        #t = _thread.start_new_thread(targ, (inputTensor,))
 
     def OnGameEnd(self):
         print("game over")
@@ -96,35 +92,44 @@ class Bot(object):
                     break
 
                 line = rawline.strip()
-
                 # Empty lines can be ignored
                 if len(line) == 0:
                     continue
-
                 parts = line.split()
 
                 command = parts[0]
+
 
                 # All different commands besides the opponents' moves
                 if command == 'settings':
                     self.update_settings(parts[1:])
 
                 elif command == 'setup_map':
+                    print("Episode Turn: {}".format(self.episode_turn))
                     self.setup_map(parts[1:])
 
+
                 elif command == 'update_map':
-                    # countries_owned = self.VectorMap.count_countries()
-                    # troops_owned =self.VectorMap.count_troops()
-
-
+                    print()
+                    countries_owned = self.VectorMap.count_countries()
+                    troops_owned = self.VectorMap.count_troops()
                     self.update_map(parts[1:])
+                    tensor = np.array(self.VectorMap.createTensor())
+
+                    if (self.episode_turn == 0):
+                        self.Trainer.init_episode(tensor, self.episode_turn)
+                        self.episode_turn += 1
+                    else:
+                        self.reward = self.compute_reward(countries_owned,troops_owned)
+                        rewards = np.array([self.reward])
+                        self.Trainer.train_reward(tensor, rewards)
+
+                        
+
                    #  vec84 = np.array(self.VectorMap.createTensor())
                    # # send84 = pickle.dumps(np.random.random(84))
                    #  #mysend(s,send84,len(send84)) 
                     
-                   #  if not self.first_send:
-                   #      self.reward = self.compute_reward(countries_owned,troops_owned)
-                   #      rewards = np.array([self.reward])
 
                    #    #  send_r = pickle.dumps(np.array([self.reward]))
                    #     # mysend(s,sendr,len(send_r))
@@ -137,20 +142,18 @@ class Bot(object):
                     self.newGame = False
 
                 elif command == 'go':
-
+                    self.episode_turn += 1
                     sub_command = parts[1]
-                    tensor = self.VectorMap.createTensor()
-
+                    tensor = np.array(self.VectorMap.createTensor())
+                    moves = self.Trainer.get_moves(self.episode_turn)
                     if sub_command == 'place_armies':
-                      #  place42 = pickle.loads(myreceive(s,2400))
-                       # stdout.write(self.place_troops(place42) + '\n')
-                        self.TrainAgent(tensor)
+                        output = self.place_troops(moves[0])
+                        stdout.write(output)
                         stdout.flush()
 
                     elif sub_command == 'attack/transfer':
-                        self.TrainAgent(tensor)
-                       # attack82 = pickle.loads(myreceive(s,2400))  
-                       # stdout.write(self.attack_transfer(attack82) + '\n')
+                        output = self.attack_transfer(moves[1])
+                        stdout.write(output)
                         stdout.flush()
                     else:
                         stderr.write('Unknown sub command: %s\n' % (sub_command))
@@ -245,17 +248,10 @@ class Bot(object):
 
         
     def pick_starting_regions(self, options):
-        '''
-        Method to select our initial starting regions.
-        
-        Currently selects six random regions.
-        '''
-        #return (str(self.ActionManager.setup()[:6]))
-        shuffled_regions = Random.shuffle(Random.shuffle(options))
-        return str(shuffled_regions[:6])#self.ActionManager.setup()
+        return self.ActionManager.pick_starting_regions()
 
     def place_troops(self,priorities42):
-        place = self.ActionManager.allocate_troops(self.settings['starting_armies'],priorities42)    
+        place = self.ActionManager.allocate_troops(self.settings['starting_armies'], priorities42)    
         return place
 
     def attack_transfer(self,priorities82):

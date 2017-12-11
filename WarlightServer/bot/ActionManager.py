@@ -1,6 +1,6 @@
 import random
 import math
-
+import numpy as np
 
 class ActionManager(object):
     #To place the troops
@@ -8,11 +8,12 @@ class ActionManager(object):
         self.VectorMap = VectorMap
         self.settings = settings
         self.map = GameMap
-    
-    def setup(self):
-        list_42 = (xrange(0, 42))
+        self.numRegions = 42
+
+    def pick_starting_regions(self):
+        list_42 = [i for i in range(self.numRegions)]
         random.shuffle(list_42)
-        regions = [12]
+        regions = [i for i in range(self.numRegions)]
         for i in range(0, len(regions)):
             regions[i] = list_42[i]
 
@@ -26,9 +27,6 @@ class ActionManager(object):
     #Helper function for allocate_troops
     def attack_transfer(self, priorities):
     #Priorities is a 82 element vector giving a float value for each region border
-        if (priorities == None or len(priorities) == 0):
-            priorities = [random.random() for p in range(82)]
-
         vm = self.VectorMap
         #print(str(vm.attack_threshold))
         attack_transfers = [] #List to be returned
@@ -81,19 +79,31 @@ class ActionManager(object):
         #priority/sum priorities * # troops floor 
         amount_troops = {}
         troops = int(num_troops)
+        print("TROOP COUNT:" + str(num_troops))
         owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
-        sum_ownership = sum([priorities[r.id] for r in owned_regions])
+        print("LENGTH OF OWNED REGIONS: " + str(len(owned_regions)))
+        sum_ownership = sum([priorities[int(r.id)-1] for r in owned_regions])
+
         new_priorities = [i/sum_ownership for i in priorities]
         troops_allocated = 0
+        maxVal = 0
+        maxID = 0
         for r in owned_regions:
-            alloc = math.floor(new_priorities[r.id]*num_troops)
-            amount_troops[r.id] = alloc
-            troops_allocated += alloc
-        max_val = max(amount_troops.values)
-        amount_troops[amount_troops.index(max_val)] += (num_troops - troops_allocated)
+            alloc = float(priorities[int(r.id)-1]) * float(num_troops)
+            print("RID: " +  str(alloc) + " | " + str(int(alloc)))
+            amount_troops[int(r.id)] = int(alloc)
+            troops_allocated += int(alloc)
+            if (alloc > maxVal):
+                maxVal = alloc
+                maxID = int(r.id)
+        print("AMOUNT TROOPS:" + str(amount_troops))
+        print("TROOPS ALLOCATED:" + str(troops_allocated))
+        amount_troops[maxID] += (troops - troops_allocated)
         output = ""
         placements = []
         for key in amount_troops.keys():
             tmp = [key, amount_troops[key]]
-            placements.append(tmp)
+            if (amount_troops[key] > 0):
+                placements.append(tmp)
+        print(', '.join(['%s place_armies %s %d' % (self.settings['your_bot'], placement[0], placement[1]) for placement in placements]))
         return ', '.join(['%s place_armies %s %d' % (self.settings['your_bot'], placement[0], placement[1]) for placement in placements])
