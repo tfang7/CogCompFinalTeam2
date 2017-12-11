@@ -7,7 +7,8 @@ import socket
 import pickle
 import time
 import random
-
+import NEURALNETS
+import _thread
 class Bot(object):
     '''
     Main bot class
@@ -30,6 +31,15 @@ class Bot(object):
         self.map = Map()
         self.ActionManager = ActionManager(self.VectorMap, self.settings, self.map)
 
+        self.Trainer = NEURALNETS.Trainer()
+        # self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        # host = socket.gethostname()                           
+        # port = 6998
+        # self.socket.connect((host, port))  
+
+    def TrainAgent(self, inputTensor):
+        targ = self.Trainer.run
+        t = _thread.start_new_thread(targ, (inputTensor,))
 
     def OnGameEnd(self):
         print("game over")
@@ -38,32 +48,32 @@ class Bot(object):
         self.gamesPlayed += 1
 
 
-    def mysend(self,sock, msg, msglen):
-        totalsent = 0
+    # def mysend(self,sock, msg, msglen):
+    #     totalsent = 0
 
-        padding = (2400-msglen)*' '
-        msg += padding
+    #     padding = (2400-msglen)*' '
+    #     msg += padding
 
-        while totalsent < 2400:
-            sent = sock.send(msg[totalsent:])
-            if sent == 0:
-                raise RuntimeError("socket connection broken")
-            totalsent = totalsent + sent
+    #     while totalsent < 2400:
+    #         sent = sock.send(msg[totalsent:])
+    #         if sent == 0:
+    #             raise RuntimeError("socket connection broken")
+    #         totalsent = totalsent + sent
 
-    def myreceive(self,sock,msglen):
-        chunks = []
-        bytes_recd = 0
-        while bytes_recd < 2400:
-            chunk = sock.recv(min(2400 - bytes_recd, 2048))
-            if chunk == '':
-                raise RuntimeError("socket connection broken")
-            chunks.append(chunk)
-            bytes_recd = bytes_recd + len(chunk)
-        return ''.join(chunks)
+    # def myreceive(self,sock,msglen):
+    #     chunks = []
+    #     bytes_recd = 0
+    #     while bytes_recd < 2400:
+    #         chunk = sock.recv(min(2400 - bytes_recd, 2048))
+    #         if chunk == '':
+    #             raise RuntimeError("socket connection broken")
+    #         chunks.append(chunk)
+    #         bytes_recd = bytes_recd + len(chunk)
+    #     return ''.join(chunks)
 
-    def compute_reward(countries,troops):
-        delta_countries_owned = VectorMap.count_countries()-countries
-        delta_troops_owned = VectorMap.count_troops()-troops
+    def compute_reward(self, countries,troops):
+        delta_countries_owned = self.VectorMap.count_countries()-countries
+        delta_troops_owned = self.VectorMap.count_troops()-troops
         return delta_countries_owned
         # return delta_troops_owned
 
@@ -74,10 +84,6 @@ class Bot(object):
         Keeps running while being fed data from stdin.
         Writes output to stdout, remember to flush!
         '''
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-        host = socket.gethostname()                           
-        port = 6997
-        s.connect((host, port))  
         
         self.first_send = True
         self.reward = 0
@@ -106,20 +112,23 @@ class Bot(object):
                     self.setup_map(parts[1:])
 
                 elif command == 'update_map':
-                    countries_owned = VectorMap.count_countries()
-                    troops_owned = VectorMap.count_troops()
+                    # countries_owned = self.VectorMap.count_countries()
+                    # troops_owned =self.VectorMap.count_troops()
+
 
                     self.update_map(parts[1:])
-                    vec84 = np.array(self.VectorMap.createTensor())
-                    send84 = pickle.dumps(np.random.random(84))
-                    mysend(s,send84,len(send84)) 
+                   #  vec84 = np.array(self.VectorMap.createTensor())
+                   # # send84 = pickle.dumps(np.random.random(84))
+                   #  #mysend(s,send84,len(send84)) 
                     
-                    if not first_send:
-                        self.reward = compute_reward(countries_owned,troops_owned)
-                        send_r = pickle.dumps(np.array([self.reward]))
-                        mysend(s,sendr,len(send_r))
-                    else:
-                        first_send = False
+                   #  if not self.first_send:
+                   #      self.reward = self.compute_reward(countries_owned,troops_owned)
+                   #      rewards = np.array([self.reward])
+
+                   #    #  send_r = pickle.dumps(np.array([self.reward]))
+                   #     # mysend(s,sendr,len(send_r))
+                   #  else:
+                   #      self.first_send = False
 
                 elif command == 'pick_starting_regions':
                     stdout.write(self.pick_starting_regions(parts[2:]) + '\n')
@@ -129,15 +138,18 @@ class Bot(object):
                 elif command == 'go':
 
                     sub_command = parts[1]
+                    tensor = self.VectorMap.createTensor()
 
                     if sub_command == 'place_armies':
-                        place42 = pickle.loads(myreceive(s,2400))
-                        stdout.write(self.place_troops(place42) + '\n')
+                      #  place42 = pickle.loads(myreceive(s,2400))
+                       # stdout.write(self.place_troops(place42) + '\n')
+                        self.TrainAgent(tensor)
                         stdout.flush()
 
                     elif sub_command == 'attack/transfer':
-                        attack82 = pickle.loads(myreceive(s,2400))  
-                        stdout.write(self.attack_transfer(attack82) + '\n')
+                        self.TrainAgent(tensor)
+                       # attack82 = pickle.loads(myreceive(s,2400))  
+                       # stdout.write(self.attack_transfer(attack82) + '\n')
                         stdout.flush()
                     else:
                         stderr.write('Unknown sub command: %s\n' % (sub_command))
@@ -152,8 +164,8 @@ class Bot(object):
                     stderr.flush()
             except EOFError:
                 return
-            send_ng = pickle.dumps(np.array([self.newGame]))
-            mysend(s,sendr,len(send_ng))
+           # send_ng = pickle.dumps(np.array([self.newGame]))
+            #mysend(s,sendr,len(send_ng))
 
     def update_settings(self, options):
         '''

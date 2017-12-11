@@ -55,8 +55,8 @@ public class RunGame
 	public static void main(String args[]) throws Exception
 	{	
 		RunGame run = new RunGame(args);
-		int playedGames = 1;
-		int maxGames = 11;
+		int playedGames = 0;
+		int maxGames = 1;
 		while (playedGames < maxGames) 
 		{
 			run.go(playedGames, maxGames);

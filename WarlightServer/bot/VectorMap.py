@@ -3,6 +3,7 @@ class VectorMap(object):
 		self.MapData = []
 		self.numRegions = 42
 		self.initBorders()
+		self.RegionData = {}
 	def Region(self, rId, player, troops):
 		return {"id": rId, "owner": player, "troops": troops}
 	def initBorders(self):
@@ -20,7 +21,6 @@ class VectorMap(object):
 			[39,40], [39,41], [40,41], [40,42], [41,42]]
 		
 	def setup(self, GameMap, player, enemy):
-		self.RegionData = {}
 		self.player = player
 		self.enemy = enemy
 		self.readMap(GameMap)
@@ -40,18 +40,16 @@ class VectorMap(object):
 
 	def count_countries(self):
 		total = 0
-		for x in range(numRegions):
-			iden = x+1
-			if self.RegionData[x][1] == 1:
+		for rID in self.RegionData.keys():
+			if self.RegionData[rID]["owner"] == 1:
 				total += 1
 		return total
 
 	def count_troops(self):
 		total = 0
-		for x in range(numRegions):
-			iden = x+1
-			if self.RegionData[str(iden)]['owner'] == 1:
-				total += self.RegionData[str(iden)]['troops']
+		for rID in self.RegionData.keys():
+			if self.RegionData[rID]['owner'] == 1:
+				total += self.RegionData[rID]['troops']
 		return total
 
 	def enumRegion(self, regionOwner):
