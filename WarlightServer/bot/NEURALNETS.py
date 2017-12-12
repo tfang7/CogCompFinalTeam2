@@ -4,6 +4,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import scipy.misc
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 import csv
 import time
 import itertools

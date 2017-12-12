@@ -46,8 +46,8 @@ class ActionManager(object):
                 #Look up the border pair in VectorMap. Could be reversed, so check both orientations. 
                 if b in vm.borders:
                     index = vm.borders.index(b)
-                elif b[::-1] in vm.borders:
-                    index = vm.borders.index(b[::-1])
+                elif reversed(b) in vm.borders:
+                    index = vm.borders.index(reversed(b))
                 
                 #transfer case
                 if target_region in owned_regions:
