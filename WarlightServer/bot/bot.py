@@ -114,7 +114,7 @@ class Bot(object):
                     if (self.episode_turn != 0):
                         self.episode_turn += 1
 
-                    #print("Episode Turn: {}".format(self.episode_turn))
+                    print("Episode Turn: {} --- Games Played {}\n".format(self.episode_turn, self.gamesPlayed))
                     countries_owned = self.VectorMap.count_countries()
                     troops_owned = self.VectorMap.count_troops()
                     self.update_map(parts[1:])

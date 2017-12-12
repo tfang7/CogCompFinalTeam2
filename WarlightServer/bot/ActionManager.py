@@ -32,7 +32,7 @@ class ActionManager(object):
         attack_transfers = [] #List to be returned
         owned_regions = self.map.get_owned_regions(self.settings['your_bot'])
         already_acting = []
-        print("\nwe own ",len(owned_regions),'\n')
+       # print("\nwe own ",len(owned_regions),'\n')
         for region in owned_regions:
             #check if region is lameduck
             if region.troop_count==1:
@@ -52,7 +52,7 @@ class ActionManager(object):
                 #transfer case
                 if target_region in owned_regions:
                     #if we have already covered this relationship
-                    print("[{}->{}] p[i] @ {}".format(region.id, target_region.id, priorities[index]))
+                    #print("[{}->{}] p[i] @ {}".format(region.id, target_region.id, priorities[index]))
                     if not (priorities[index] > vm.attack_threshold and priorities[index] > best_priority):
                         continue
                     if target_region.troop_count == 1 and region.troop_count > 1:
@@ -90,7 +90,7 @@ class ActionManager(object):
         new_priorities = [i/sum_ownership for i in priorities]
         troops_allocated = 0
         maxVal = 0
-        maxID = 0
+        maxID = 1
         for r in owned_regions:
             alloc = float(priorities[int(r.id)-1]) * float(num_troops)
             amount_troops[(r.id)] = int(alloc)
@@ -101,7 +101,11 @@ class ActionManager(object):
             if (alloc > maxVal):
                 maxVal = alloc
                 maxID = (r.id)
-        amount_troops[maxID] += (troops - troops_allocated)
+        owned = False
+        for reg in owned_regions:
+            if reg.id == maxID:
+                owned = True
+                amount_troops[maxID] += (troops - troops_allocated)
 
         output = ""
         placements = []
@@ -113,7 +117,7 @@ class ActionManager(object):
                 counter += amount_troops[key]
                 placements.append(tmp)
 
-        if (troops - counter > 0):
+        if (owned and troops - counter > 0):
             amount_troops[maxID] += troops - counter
 
         if (len(placements) == 0):

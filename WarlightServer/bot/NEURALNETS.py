@@ -104,9 +104,7 @@ class experience_buffer(object):
 
 
 class Trainer(object):
-
     def __init__(self):
-        print("Created Trainer object\n")
         #Setting the training parameters
         self.batch_size = 4 #How many experience traces to use for each training step.
         self.update_freq = 5 #How often to perform a training step.
@@ -128,7 +126,9 @@ class Trainer(object):
         self.mainFN = FightNetwork()
         self.targetPN = PlaceNetwork()
         self.targetFN = FightNetwork()
-
+        self.rewardPath = "data/rewards.txt"
+        self.clearFile(self.rewardPath)
+        
     def updateTargetGraph(self,tfVars,tau):
         total_vars = len(tfVars)
         op_holder = []
@@ -143,6 +143,14 @@ class Trainer(object):
     def close_sess(self):
         self.sess.close()
 
+    def writeToFile(self, path, data):
+        f = open(path, 'a')
+        f.write(data)
+        f.close()
+    def clearFile(self, path):
+        f = open(path, 'w')
+        f.write('')
+        f.close()
 
     def init_episode(self,initvec84, epnum, steps):
         if epnum == 0:
@@ -159,6 +167,7 @@ class Trainer(object):
             self.sess.run(self.init) 
         else: #at the end of an episode update
             #writeFile(r, stepNum, epnum)
+            self.writeToFile(self.rewardPath, "{}|{}|{}|{}\n".format(self.rAll[0], epnum, steps, time.time()))
             self.myBuffer.add(self.episodeBuffer.buffer)
             self.jList.append(steps)
             self.rList.append(self.rAll)
@@ -169,68 +178,67 @@ class Trainer(object):
         return
 
     def get_moves(self,turn):
-        with self.sess:
-            total_steps = turn
-            #Choose an action by greedily (with e chance of random action) from the Q-network
-            if np.random.rand(1) < self.e or total_steps < self.pre_train_steps:
-                self.a1 = np.random.randint(0,41)
-                self.place = np.random.rand(1,42)[0]
-            else:
-                self.a1 = self.sess.run(self.mainPN.predict,feed_dict={self.mainPN.X:[self.s]})[0]
-                self.place = self.sess.run(self.mainPN.Qout,feed_dict={self.mainPN.X:[self.s]})[0]
-            
-            
-            if np.random.rand(1) < self.e or total_steps < self.pre_train_steps:
-                self.a2 = np.random.randint(0,81)
-                self.border = np.random.rand(1,82)[0]
-            else:
-                self.a2 = self.sess.run(self.mainFN.predict,feed_dict={self.mainFN.X:[self.s]})[0]
-                self.border = self.sess.run(self.mainFN.Qout,feed_dict={self.mainFN.X:[self.s]})[0]
+      #  print(self.sess._closed)
+        total_steps = turn
+        #Choose an action by greedily (with e chance of random action) from the Q-network
+        if np.random.rand(1) < self.e or total_steps < self.pre_train_steps:
+            self.a1 = np.random.randint(0,41)
+            self.place = np.random.rand(1,42)[0]
+        else:
+            self.a1 = self.sess.run(self.mainPN.predict,feed_dict={self.mainPN.X:[self.s]})[0]
+            self.place = self.sess.run(self.mainPN.Qout,feed_dict={self.mainPN.X:[self.s]})[0]
+        
+        
+        if np.random.rand(1) < self.e or total_steps < self.pre_train_steps:
+            self.a2 = np.random.randint(0,81)
+            self.border = np.random.rand(1,82)[0]
+        else:
+            self.a2 = self.sess.run(self.mainFN.predict,feed_dict={self.mainFN.X:[self.s]})[0]
+            self.border = self.sess.run(self.mainFN.Qout,feed_dict={self.mainFN.X:[self.s]})[0]
         return self.place, self.border
 
 
     def train_reward(self,vec_84,r, total_steps):
        # print("T steps: {} -- PT Steps: {}".format(total_steps, self.pre_train_steps))
-        with self.sess:
-            s1 = vec_84 
-            #Save the experience to our episode buffer.
-            self.episodeBuffer.add(np.reshape(np.array([self.s,self.a1,self.a2,r,s1]),[1,5])) 
-            #print("Len of mybuffer.buffer: {}".format(len(self.myBuffer.buffer)))
-            if total_steps > self.pre_train_steps:
-                #print("Mybuffer",len(self.myBuffer.buffer))
-                if self.e > self.endE:
-                    self.e -= self.stepDrop
+        s1 = vec_84 
+        #Save the experience to our episode buffer.
+        self.episodeBuffer.add(np.reshape(np.array([self.s,self.a1,self.a2,r,s1]),[1,5])) 
+        #print("Len of mybuffer.buffer: {}".format(len(self.myBuffer.buffer)))
+        if total_steps > self.pre_train_steps:
+            #print("Mybuffer",len(self.myBuffer.buffer))
+            if self.e > self.endE:
+                self.e -= self.stepDrop
+            
+            if total_steps % (self.update_freq) == 0:
+                #Get a random batch of experiences.
+                #print("MY BUFFER:" + str(self.myBuffer.buffer_size))
+                trainBatch = self.myBuffer.sample(self.batch_size)
                 
-                if total_steps % (self.update_freq) == 0:
-                    #Get a random batch of experiences.
-                    #print("MY BUFFER:" + str(self.myBuffer.buffer_size))
-                    trainBatch = self.myBuffer.sample(self.batch_size)
+                #Below we perform the Double-DQN update to the target Q-values
+                P1 = self.sess.run(self.mainPN.predict,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,4])})
+                P2 = self.sess.run(self.targetPN.Qout,feed_dict={self.targetPN.X:np.vstack(trainBatch[:,4])})
+                F1 = self.sess.run(self.mainFN.predict,feed_dict={self.mainFN.X:np.vstack(trainBatch[:,4])})
+                F2 = self.sess.run(self.targetFN.Qout,feed_dict={self.targetFN.X:np.vstack(trainBatch[:,4])})
+                
+                end_multiplier = -(trainBatch[:,5] - 1)
+                
+                doubleP = P2[range(batch_size),P1]
+                targetP = trainBatch[:,3] + (y*doubleP * end_multiplier)
+                #Update the network with our target values.
+                _ = self.sess.run(self.mainPN.updateModel,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,0]),
+                                                           self.mainPN.targetQ:targetP, 
+                                                           self.mainPN.actions:trainBatch[:,1]})
+                
+                doubleF = F2[range(batch_size),F1]
+                targetF = trainBatch[:,3] + (y*doubleF * end_multiplier)
+                #Update the network with our target values.
+                _ = self.sess.run(self.mainFN.updateModel,feed_dict={self.mainFN.X:np.vstack(trainBatch[:,0]),
+                                                           self.mainFN.targetQ:targetF, 
+                                                           self.mainFN.actions:trainBatch[:,2]})
+                self.updateTarget(self.targetOps) #Update the target network toward the primary network.
                     
-                    #Below we perform the Double-DQN update to the target Q-values
-                    P1 = self.sess.run(self.mainPN.predict,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,4])})
-                    P2 = self.sess.run(self.targetPN.Qout,feed_dict={self.targetPN.X:np.vstack(trainBatch[:,4])})
-                    F1 = self.sess.run(self.mainFN.predict,feed_dict={self.mainFN.X:np.vstack(trainBatch[:,4])})
-                    F2 = self.sess.run(self.targetFN.Qout,feed_dict={self.targetFN.X:np.vstack(trainBatch[:,4])})
-                    
-                    end_multiplier = -(trainBatch[:,5] - 1)
-                    
-                    doubleP = P2[range(batch_size),P1]
-                    targetP = trainBatch[:,3] + (y*doubleP * end_multiplier)
-                    #Update the network with our target values.
-                    _ = self.sess.run(self.mainPN.updateModel,feed_dict={self.mainPN.X:np.vstack(trainBatch[:,0]),
-                                                               self.mainPN.targetQ:targetP, 
-                                                               self.mainPN.actions:trainBatch[:,1]})
-                    
-                    doubleF = F2[range(batch_size),F1]
-                    targetF = trainBatch[:,3] + (y*doubleF * end_multiplier)
-                    #Update the network with our target values.
-                    _ = self.sess.run(self.mainFN.updateModel,feed_dict={self.mainFN.X:np.vstack(trainBatch[:,0]),
-                                                               self.mainFN.targetQ:targetF, 
-                                                               self.mainFN.actions:trainBatch[:,2]})
-                    self.updateTarget(self.targetOps) #Update the target network toward the primary network.
-                    
-            self.rAll += r
-            self.s = s1
+        self.rAll += r
+        self.s = s1
 
     def train_first_game(self,vec_84,r):
         s1 = vec_84

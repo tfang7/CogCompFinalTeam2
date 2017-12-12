@@ -54,11 +54,12 @@ public class RunGame
 
 	public static void main(String args[]) throws Exception
 	{	
-		RunGame run = new RunGame(args);
 		int playedGames = 0;
-		int maxGames = 1;
+		int maxGames = 100;
+		RunGame run = new RunGame(args);
+
 		while (playedGames < maxGames) 
-		{
+		{		
 			run.go(playedGames, maxGames);
 			playedGames++;
 		}
@@ -121,8 +122,12 @@ public class RunGame
 		player2PlayedGame = this.engine.getPlayer2PlayedGame();
 		bot1.writeInfo("GAME_OVER");
 		bot2.writeInfo("GAME_OVER");
-		System.out.println(bot2.getStdout());
+		//System.out.println(bot2.getStdout());
+		if (this.engine.winningPlayer() != null)
+		{
+			System.out.println("The winner is " + this.engine.winningPlayer().getName());
 
+		}
 		if (gamesPlayed == maxGames-1) {
 			System.out.println(bot2.getStderr());
 			System.out.println("Iteration ended");
@@ -141,8 +146,8 @@ public class RunGame
 
 		bot2.finish();
 		Thread.sleep(200);
-
-		Thread.sleep(200);*/
+*/
+		Thread.sleep(200);
 
 		// write everything
 		// String outputFile = this.writeOutputFile(this.gameId, this.engine.winningPlayer());
